@@ -96,14 +96,74 @@ for line in open(SRC / "cedict_ts.u8", encoding="utf-8"):
     entries[simp].append({"num": num, "pinyin": marks(num), "senses": senses, "measure": measure})
 trad_only = trad_chars - simp_chars
 
-def short_of(senses):
-    s = senses[0] if senses else ""
+SHORT_MAX = 30   # the Lock Screen widget fits 2 lines of about 20 characters
+SHORT = {        # hand-written short meanings, used before the rule below
+    "吗": "yes/no question particle", "呢": "and you? / what about?", "吧": "suggestion: let's..., right?", "了": "done / change (particle)",
+    "得": "verb + 得 + how well", "的": "of; 's (particle)", "地": "-ly (adverb particle)", "着": "-ing (ongoing state)",
+    "过": "have done before; to pass", "把": "把 + object + verb", "被": "by (passive)", "啊": "ah; oh",
+    "呀": "ah; oh (after a vowel)", "唉": "sigh; yes", "之": "of (literary 的)", "们": "plural (我们, 你们)",
+    "起来": "start to; get up", "分之": "fraction (三分之一 = 1/3)", "一下儿": "a bit; once (一下)", "个": "general measure word",
+    "些": "some; a few", "辆": "MW for cars", "份": "MW for copies, portions", "棵": "MW for trees",
+    "颗": "MW for small round things", "张": "MW for flat things; to open", "条": "MW for long things; strip", "件": "MW for clothes, matters",
+    "位": "MW for people (polite)", "本": "MW for books; origin", "块": "piece; yuan (spoken)", "层": "floor, layer",
+    "次": "time (how many times)", "片": "slice, piece", "段": "section, part", "篇": "MW for articles",
+    "座": "MW for buildings, mountains", "号": "number; date", "点": "o'clock; a little; dot", "刻": "quarter hour",
+    "节": "MW for classes; festival", "遍": "time (once through)", "双": "pair", "只": "only; MW for animals",
+    "太": "too; very", "跟": "with; to follow", "才": "only then; just", "便": "convenient; then",
+    "所": "place; (所以 so)", "角": "angle; 0.1 yuan", "离": "away from", "往": "toward",
+    "着急": "worried", "老": "old", "对": "right; to, toward", "给": "to give; for",
+    "种": "kind, type", "门": "door", "韩文": "Korean (language)", "人民币": "RMB, Chinese yuan",
+    "太极拳": "tai chi", "气功": "qigong", "北京": "Beijing", "球": "ball",
+    "不得不": "have to", "场": "place; MW for games", "出差": "business trip", "究竟": "after all; exactly",
+    "招聘": "to recruit", "只好": "have to (no choice)", "丙": "third (C)", "甲": "first (A)",
+    "乙": "second (B)", "成语": "idiom (4 characters)", "打工": "part-time job", "担任": "to hold a post",
+    "革命": "revolution", "纪录": "record", "录取": "to admit (school, job)", "名胜": "famous sight",
+    "所谓": "so-called", "发烧": "to have a fever", "关心": "to care about", "叔叔": "uncle",
+    "请假": "to ask for leave", "打针": "to get an injection", "失眠": "insomnia", "打电话": "to make a phone call",
+    "正在": "in the middle of", "最": "most", "负责": "responsible for", "合格": "qualified",
+    "看法": "opinion", "来不及": "too late", "无论": "no matter", "重视": "to value",
+    "主动": "to take the initiative", "班主任": "head teacher", "背": "back; to memorize", "放暑假": "summer holiday",
+    "日用品": "daily goods", "中药": "Chinese medicine", "留学生": "foreign student", "同学": "classmate",
+    "楼": "building; floor", "课间": "break between classes", "房租": "rent", "办公": "to work (in an office)",
+    "贵姓": "your surname? (polite)", "请问": "excuse me, may I ask", "觉得": "to think, feel", "字典": "dictionary",
+    "游戏": "game", "河": "river", "鱼": "fish", "猫": "cat",
+    "路": "road", "好处": "benefit", "乱": "messy", "上海": "Shanghai",
+    "长江": "Yangtze River", "沙发": "sofa", "梦": "dream", "难道": "don't tell me...?",
+    "请客": "to treat (pay for others)", "提前": "in advance", "填空": "fill in the blank", "朝": "toward; dynasty",
+    "采取": "to adopt", "打交道": "to deal with", "打招呼": "to say hello", "钓": "to fish",
+    "否认": "to deny", "扶": "to support with hand", "付款": "to pay", "乖": "well-behaved",
+    "光临": "to visit (polite)", "规矩": "rule; well-behaved", "怀念": "to miss (the past)", "及格": "to pass (a test)",
+    "讲究": "to be particular about", "尽力": "to do one's best", "近代": "modern times", "可见": "so we can see",
+    "口味": "taste", "临时": "temporary; at the last minute", "摸": "to touch", "年代": "decade; era",
+    "披": "to drape on", "使劲儿": "to use force", "始终": "from start to end", "丝毫": "the slightest",
+    "体会": "to learn from experience", "体验": "to experience", "退步": "to fall behind", "问候": "to send regards",
+    "无奈": "helpless", "武术": "martial arts", "腰": "waist", "应聘": "to apply for a job",
+    "与其": "rather than", "阵": "a burst; a while", "中介": "agent; agency", "中旬": "middle of a month",
+    "抓紧": "to hurry; hold tight", "专心": "to focus", "自信": "confident", "又…又…": "both... and...",
+    "喂": "hello (phone); hey", "元": "yuan", "毛": "0.1 yuan; hair", "家": "home; family",
+}
+
+def clean_sense(s):
     s = re.sub(r"^(\([^)]*\)\s*)+", "", s)          # drop leading "(bound form)" etc.
     s = re.sub(r"\s*\([^)]*\)", "", s).strip()       # drop other notes
-    s = s.split(";")[0].strip()
-    if not s and senses:                             # "(completed action marker)" -> keep the note
-        s = re.sub(r"[()]", "", senses[0]).split(";")[0].strip()
-    return s if len(s) <= 40 else s[:38].rstrip() + "..."
+    s = re.sub(r"\s*[\u3400-\u9fff].*$", "", s).strip()  # drop Chinese text and what follows
+    return s.split(";")[0].split(":")[0].strip(" ,.")
+
+def short_of(senses, hanzi=""):
+    """One simple meaning for the widget. The full meanings stay in senses."""
+    if hanzi in SHORT: return SHORT[hanzi]
+    cands = [clean_sense(x) for x in senses[:3]]
+    if not any(cands) and senses:                    # "(completed action marker)" -> keep the note
+        cands = [re.sub(r"[()]", "", senses[0]).split(";")[0].strip()]
+    first = cands[0] if cands else ""
+    for c in (first, first.split(",")[0].strip()):   # first meaning, else its first comma part
+        if c and len(c) <= SHORT_MAX: return c
+    c = first.split(",")[0]
+    out = ""                                         # last: cut at a word break
+    for word in c.split():
+        if len((out + " " + word).strip()) > SHORT_MAX: break
+        out = (out + " " + word).strip()
+    return out.rstrip(" ,.-") or c[:SHORT_MAX]
 
 def pick(simp, want=None, numeric=None, depth=0):
     """Choose CC-CEDICT readings for a word. Merge entries with the same reading."""
@@ -228,7 +288,7 @@ def build(level, items, known):
         if not info:
             missing.append(hanzi); continue
         py = pinyin_for(want, info)
-        w = {"hanzi": hanzi, "pinyin": py, "short": short_of(info["senses"]),
+        w = {"hanzi": hanzi, "pinyin": py, "short": short_of(info["senses"], hanzi),
              "senses": info["senses"]}
         if want and py != want:
             report.append(f"{level}: {hanzi} my pinyin {want} -> {py} (from CC-CEDICT)")

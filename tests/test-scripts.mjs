@@ -87,6 +87,8 @@ for (const lv of ["hsk1-2", "hsk3", "hsk4", "hsk5"]) {
   const d = JSON.parse(fs.readFileSync(path.join(ROOT, "data", lv + ".json"), "utf8"));
   check(`${lv}: every word has hanzi, pinyin, short and senses`,
     d.words.length > 100 && d.words.every(w => w.hanzi && w.pinyin && w.short && w.senses.length));
+  check(`${lv}: every short meaning fits the Lock Screen (30 chars, no "...")`,
+    d.words.every(w => w.short.length <= 30 && (!w.short.endsWith("...") || w.hanzi.includes("…"))));
   check(`${lv}: no duplicate words`, new Set(d.words.map(w => w.hanzi)).size === d.words.length);
   check(`${lv}: most words have an example`, d.words.filter(w => w.example).length / d.words.length > 0.85);
 }
