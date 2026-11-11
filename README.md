@@ -6,7 +6,7 @@ Learn Chinese without opening an app. New words and radicals show up on your iPh
 - **Radicals** (iPhone Home Screen): one of 50 common radicals (bo thu), with 3 example characters. A new one every 10 minutes.
 - **MacHanzi** (Mac, optional): the same word in the menu bar, plus two cards on the desktop (word and radical).
 
-Vietnamese setup guide: [HUONG-DAN.md](HUONG-DAN.md)
+Step-by-step setup guide: [GUIDE.md](GUIDE.md)
 
 ## What is inside
 
