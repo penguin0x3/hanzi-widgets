@@ -40,6 +40,8 @@ Tap the widget at any time to open the detail page: all meanings, measure word, 
 2. Find **Scriptable**, pick the **medium** size, and add it.
 3. Press and hold the widget, tap **Edit Widget**. Under **Script**, choose `Radicals`.
 
+Tap the widget to open the radical page: each example character with a common word, an example sentence and **Play**. Tap **Next radical** to see another one.
+
 ## Add your own words
 
 - **From any app:** select a Chinese word (in Pleco, Safari, WeChat...), tap **Share**, then **Run Script** (Scriptable), then **Add Word**. Pinyin and meaning are filled in. Tap **Save**.

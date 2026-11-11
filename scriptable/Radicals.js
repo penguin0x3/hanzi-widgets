@@ -9,6 +9,9 @@
 //   examples: up to 3, split by ";", each "character pinyin meaning"
 // Every widget shows the same radical at the same time, and every radical
 // appears once before any of them repeats. No state file is needed.
+// Tap the widget (or run this script in the app): a detail page with each
+// example character, a common word with it, an example sentence and sound.
+// Words and sentences come from the HSK lists that Hourly Words saved.
 
 const LIST_FILE = "radicals.txt";
 const MINUTES = 10; // a new radical every 10 minutes (iOS decides the real refresh time)
@@ -174,14 +177,157 @@ function buildWidget(r, family) {
     }
   }
   lw.refreshAfterDate = nextChange;
+  lw.url = "scriptable:///run/" + encodeURIComponent(Script.name()) + "?radical=" + encodeURIComponent(r.radical);
   return lw;
+}
+
+// ---------- detail page ----------
+const LEVEL_FILES = ["hsk1-2", "hsk3", "hsk4", "hsk5"];
+const REPO = "https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/";
+
+// Words from all HSK lists (lowest level first). A missing list is downloaded once
+// (all 4 are about 550 KB) and saved next to the ones Hourly Words uses.
+async function loadWords() {
+  const words = [];
+  for (const lv of LEVEL_FILES) {
+    const p = fm.joinPath(fm.documentsDirectory(), lv + ".json");
+    try {
+      if (!fm.fileExists(p)) {
+        const r = new Request(REPO + "data/" + lv + ".json");
+        r.timeoutInterval = 15;
+        const t = await r.loadString();
+        if (JSON.parse(t).words.length) fm.writeString(p, t);
+      }
+    } catch (e) {}
+    if (!fm.fileExists(p)) continue;
+    try {
+      await fm.downloadFileFromiCloud(p);
+      for (const w of JSON.parse(fm.readString(p)).words || []) words.push(w);
+    } catch (e) {}
+  }
+  return words;
+}
+
+// For one character: a common word that contains it and an example sentence.
+function wordFor(ch, words) {
+  const self = words.find(w => w.hanzi === ch);
+  const multi = words.filter(w => w.hanzi !== ch && w.hanzi.includes(ch) && w.hanzi.length <= 4 && !/[…]/.test(w.hanzi));
+  multi.sort((a, b) => (!!b.example - !!a.example) || (a.hanzi.length - b.hanzi.length));
+  const word = multi[0] || null;
+  const ex = [word, self].map(w => w && w.example).find(e => e && e.zh.includes(ch)) || null;
+  return { word, example: ex };
+}
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+const playBtn = t => `<button class="play" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(t))})">Play</button>`;
+
+function detailHTML(r, words) {
+  const blocks = r.examples.map(e => {
+    const f = wordFor(e.char, words);
+    return `<div class="card">
+<div class="row"><span class="ch">${esc(e.char)}</span><div><div class="py">${esc(e.pinyin)}</div><div class="mn">${esc(e.meaning)}</div></div>
+<span class="sp"></span>${playBtn(e.char)}</div>
+${f.word ? `<div class="word"><span class="label">Word</span> <b>${esc(f.word.hanzi)}</b> <span class="py">${esc(f.word.pinyin)}</span> <span class="mn">${esc(f.word.short)}</span> ${playBtn(f.word.hanzi)}</div>` : ""}
+${f.example ? `<div class="ex"><div class="zh">${esc(f.example.zh)} ${playBtn(f.example.zh)}</div>
+<div class="py">${esc(f.example.pinyin)}</div><div class="mn">${esc(f.example.en)}</div></div>` : ""}
+</div>`;
+  }).join("");
+  return `<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<style>
+:root { --bg:#F5EFE3; --ink:#2B2118; --red:#A8392B; --grey:#6B5E50; --line:#E2D8C6; --card:#FBF7EF; }
+@media (prefers-color-scheme: dark) { :root { --bg:#1E1A16; --ink:#F1E9DC; --red:#E07A5F; --grey:#B5A894; --line:#3A332B; --card:#28231E; } }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { margin:0; padding:24px 20px 120px; background:var(--bg); color:var(--ink);
+  font: 17px/1.45 -apple-system, "PingFang SC", sans-serif; }
+.top { display:flex; align-items:center; gap:18px; }
+.rad { font-size:84px; font-weight:700; line-height:1; }
+.name { font-size:24px; font-weight:700; } .top .py { font-size:20px; }
+.py { color:var(--red); font-weight:600; } .mn { color:var(--grey); }
+h2 { font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--grey); margin:26px 0 10px; font-weight:600; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px; margin-bottom:12px; }
+.row { display:flex; align-items:center; gap:14px; } .sp { flex:1; }
+.ch { font-size:44px; font-weight:500; line-height:1.1; }
+.word { margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
+.word b { font-size:20px; font-weight:600; } .label { font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--grey); }
+.ex { margin-top:10px; border-left:3px solid var(--red); padding:2px 0 2px 12px; }
+.ex .zh { font-size:20px; } .ex .py { font-size:15px; font-weight:500; }
+.play { border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:16px; padding:4px 12px; font-size:14px; vertical-align:middle; }
+.bar { position:fixed; left:0; right:0; bottom:0; padding:12px 20px 34px; background:var(--bg); border-top:1px solid var(--line); }
+.bar button { width:100%; font-size:17px; padding:14px; border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
+.foot { color:var(--grey); font-size:13px; margin-top:20px; }
+</style></head><body>
+<div class="top"><div class="rad">${esc(r.radical)}</div>
+<div><div class="name">${esc(r.name)}</div><div class="py">${esc(r.pinyin)}</div><div class="mn">${esc(r.meaning)}</div></div></div>
+<h2>Characters with this radical</h2>
+${blocks}
+<div class="foot">${words.length ? "Words and sentences from your HSK lists (CC-CEDICT, Tatoeba)." : "Run Hourly Words once to get words and example sentences here."}</div>
+<div class="bar"><button onclick="act('next')">Next radical</button></div>
+<script>
+var SILENT = "data:audio/wav;base64,UklGRsQPAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YaAPAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
+var keepAwake = null, warm = false, lastSay = 0;
+function zhVoice() {
+  var vs = speechSynthesis.getVoices() || [];
+  for (var i = 0; i < vs.length; i++) if (/^zh[-_]CN/i.test(vs[i].lang)) return vs[i];
+  for (var j = 0; j < vs.length; j++) if (/^zh/i.test(vs[j].lang)) return vs[j];
+  return null;
+}
+function warmUp() {
+  if (warm) return; warm = true;
+  try { keepAwake = new Audio(SILENT); keepAwake.loop = true; keepAwake.play().catch(function () {}); } catch (e) {}
+  try { var u = new SpeechSynthesisUtterance(" "); u.volume = 0; u.lang = "zh-CN"; var v = zhVoice(); if (v) u.voice = v; speechSynthesis.speak(u); } catch (e) {}
+}
+document.addEventListener("touchstart", warmUp, { passive: true, capture: true });
+function say(t) {
+  var now = Date.now(); if (now - lastSay < 400) return; lastSay = now;
+  warmUp();
+  if (keepAwake && keepAwake.paused) keepAwake.play().catch(function () {});
+  if (!window.speechSynthesis) return;
+  if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+  var u = new SpeechSynthesisUtterance(t); u.lang = "zh-CN"; u.rate = 0.85;
+  var v = zhVoice(); if (v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+function act(a) { location.href = "hanzi://" + encodeURIComponent(a); }
+</script></body></html>`;
+}
+
+// The page asks for "next" by opening hanzi://next; we catch it and load the next radical.
+async function showDetail(start) {
+  const words = await loadWords();
+  const wv = new WebView();
+  let k = start;
+  const itemAt = n => ITEMS[shuffledOrder(Math.floor(n / ITEMS.length))[((n % ITEMS.length) + ITEMS.length) % ITEMS.length]];
+  let busy = Promise.resolve();
+  wv.shouldAllowRequest = req => {
+    const u = String((req && req.url) || "");
+    if (!u.startsWith("hanzi://")) return true;
+    if (decodeURIComponent(u.slice(8)) === "next") {
+      k += 1;
+      busy = busy.then(() => wv.loadHTML(detailHTML(itemAt(k), words))).catch(e => console.log("next failed: " + e));
+    }
+    return false;
+  };
+  await wv.loadHTML(detailHTML(itemAt(k), words));
+  await wv.present(true);
+  await busy;
 }
 
 if (config.runsInWidget || config.runsInAccessoryWidget) {
   Script.setWidget(buildWidget(item, config.widgetFamily));
 } else {
-  // Run in the app: show a preview so you can check the look
-  console.log(ITEMS.length + " radicals loaded. Now: " + item.radical + " " + item.name + " (" + item.meaning + ")");
-  await buildWidget(item, "medium").presentMedium();
+  // Run in the app or tapped from the widget: open the detail page.
+  // From the widget, start at the radical it showed (it may be from an older slot).
+  const want = args.queryParameters && args.queryParameters.radical;
+  let start = slot;
+  if (want) {
+    for (let n = slot; n > slot - ITEMS.length * 2; n--) {
+      if (ITEMS[shuffledOrder(Math.floor(n / ITEMS.length))[n % ITEMS.length]].radical === want) { start = n; break; }
+    }
+  }
+  console.log(ITEMS.length + " radicals loaded. Now: " + item.radical + " " + item.name);
+  await showDetail(start);
 }
 Script.complete();
