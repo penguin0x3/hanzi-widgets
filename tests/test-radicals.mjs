@@ -68,7 +68,7 @@ check("small and medium widgets show the same radical in the same slot", a.texts
 for (const f of ["accessoryRectangular", "small", "medium", "large", "accessoryInline", "accessoryCircular"]) {
   const e = await run(f, true, t);
   check("family " + f + " builds and sets refresh", !!e.widget && e.widget.refreshAfterDate instanceof Date && e.texts.length > 0);
-  if (f === "medium" || f === "large") check("family " + f + " shows 3 example characters with meanings", e.texts.length >= 4 + 9);
+  if (f === "medium" || f === "large") check("family " + f + " shows 3 example characters with meanings", e.texts.length >= 3 + 9);
 }
 const med = await run("medium", true, t);
 check("widget opens the detail page of the radical it shows", med.widget.url === "scriptable:///run/Radicals?radical=" + encodeURIComponent(a.texts[0]));
@@ -86,7 +86,11 @@ check("detail page has Play buttons", (page.match(/>Play</g) || []).length >= ex
 const chePage = (await run(null, false, t, { dir: tmp, query: { radical: "车" } })).html[0];
 check("radical itself has a Play button", /class="py">chē <button class="play"[^>]*say\(&quot;车&quot;\)/.test(chePage));
 const waterPage = (await run(null, false, t, { dir: tmp, query: { radical: "氵" } })).html[0];
+check("radical page preloads recorded audio", chePage.includes('data-say="辆"') && chePage.includes("audio/"));
 check("Play for 氵 reads 水", waterPage.includes('say(&quot;水&quot;)'));
+const bigPage = (await run(null, false, t, { dir: tmp, query: { radical: "大" } })).html[0];
+check("meaning that repeats the name is hidden (Big / big)", bigPage.includes('<div class="name">Big</div>') && !bigPage.includes('<div class="mn">big</div>'));
+check("meaning that adds something stays (Heart (side) / heart, mind)", (await run(null, false, t, { dir: tmp, query: { radical: "忄" } })).html[0].includes('<div class="mn">heart, mind</div>'));
 check("tap on widget opens that radical", chePage.includes('<div class="rad">车</div>'));
 check("车 page shows an example sentence with 辆", /class="zh">[^<]*辆/.test(chePage));
 const nx = await run(null, false, t, { dir: tmp, query: { radical: "车" }, web: ["next", "next"] });

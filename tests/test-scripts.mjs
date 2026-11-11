@@ -177,6 +177,7 @@ o = await run("Hourly Words.js", { dir, query: { word: "晚上", levels: "hsk1-2
 const page = o.html[0];
 check("detail page has meanings, measure word and example", page.includes("evening") && page.includes("Measure word") && page.includes("晚上好"));
 check("detail page has a Play button", page.includes("say("));
+check("Play uses recorded audio for the word and the example", page.includes('data-say="晚上"') && page.includes("audio/") && page.includes("function voice("));
 check("Mark known saves the word", read(dir, "hanzi-progress.json").known["晚上"] === 1);
 check("Next word loads another word", o.html.length === 2 && !o.html[1].includes('<div class="hanzi">晚上</div>'));
 check("speech fallback uses Speech.speak", o.speak[0] === "晚上");

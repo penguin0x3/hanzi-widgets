@@ -269,13 +269,13 @@ ol { margin:0; padding-left:24px; } li { margin:4px 0; }
 </style></head><body>
 <div class="hanzi">${esc(w.hanzi)}</div>
 <div class="row"><span class="pinyin">${esc(w.pinyin)}</span>
-<button class="play" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(w.hanzi))})">Play</button></div>
+<button class="play" data-say="${esc(w.hanzi)}" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(w.hanzi))})">Play</button></div>
 <span class="tag">${esc(LEVEL_NAMES[w.level] || w.level)}</span>
 <h2>Meaning</h2>
 <ol>${senses.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
 ${w.measure ? `<div class="mw">Measure word: <b>${esc(w.measure)}</b></div>` : ""}
 ${ex ? `<h2>Example</h2><div class="ex"><div class="zh">${esc(ex.zh)}
-<button class="play" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(ex.zh))})">Play</button></div>
+<button class="play" data-say="${esc(ex.zh)}" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(ex.zh))})">Play</button></div>
 <div class="py">${esc(ex.pinyin)}</div><div class="en">${esc(ex.en)}</div></div>` : ""}
 <div class="foot">Seen ${countSeen(pack.words)} of ${pack.words.length} words in your levels.
 ${ex ? "<br>Example from Tatoeba. " : "<br>"}Meanings from CC-CEDICT.</div>
@@ -307,8 +307,7 @@ function warmUp() {
   } catch (e) {}
 }
 document.addEventListener("touchstart", warmUp, { passive: true, capture: true });
-function say(t) {
-  var now = Date.now(); if (now - lastSay < 400) return; lastSay = now; // touchstart + click fire twice
+function voice(t) {
   warmUp();
   if (keepAwake && keepAwake.paused) keepAwake.play().catch(function () {});
   if (!window.speechSynthesis) { act("speak:" + t); return; }
@@ -317,6 +316,29 @@ function say(t) {
   u.lang = "zh-CN"; u.rate = 0.85;
   var v = zhVoice(); if (v) u.voice = v;
   speechSynthesis.speak(u);
+}
+// Recorded sound (audio/<text>.m4a on GitHub) plays at once; the page voice is the fallback.
+var AUDIO = "https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/audio/";
+var clips = {};
+function clip(t) {
+  if (clips[t]) return clips[t];
+  var c = { a: new Audio(), bad: false };
+  c.a.preload = "auto";
+  c.a.addEventListener("error", function () { c.bad = true; });
+  c.a.src = AUDIO + encodeURIComponent(t) + ".m4a";
+  try { c.a.load(); } catch (e) {}
+  return (clips[t] = c);
+}
+var btns = document.querySelectorAll("[data-say]");
+for (var b = 0; b < btns.length; b++) clip(btns[b].getAttribute("data-say"));
+function say(t) {
+  var now = Date.now(); if (now - lastSay < 400) return; lastSay = now;
+  var c = clip(t);
+  if (c.bad) { voice(t); return; }
+  for (var k in clips) if (clips[k] !== c) try { clips[k].a.pause(); } catch (e) {}
+  try { c.a.currentTime = 0; } catch (e) {}
+  var p = c.a.play();
+  if (p && p.catch) p.catch(function () { voice(t); });
 }
 function act(a) { location.href = "hanzi://" + encodeURIComponent(a); }
 function toggleKnown() {

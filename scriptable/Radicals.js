@@ -42,6 +42,10 @@ function parseExample(s) {
   return { char: parts[0] || "", pinyin: parts[1] || "", meaning: parts.slice(2).join(" ") };
 }
 
+// "Big" and "big": the meaning only repeats the name, so it is not shown.
+const baseName = n => n.replace(/\s*\(.*?\)/g, "").trim().toLowerCase();
+const meaningOf = (name, meaning) => (meaning.trim().toLowerCase() === baseName(name) ? "" : meaning);
+
 const ITEMS = fm.readString(listPath)
   .split(/\r?\n/)
   .map(l => l.trim())
@@ -51,7 +55,7 @@ const ITEMS = fm.readString(listPath)
     radical: p[0],
     pinyin: p[1] || "",
     name: p[2] || "",
-    meaning: p[3] || "",
+    meaning: meaningOf(p[2] || "", p[3] || ""),
     examples: (p[4] || "").split(";").map(parseExample).filter(e => e.char).slice(0, 3),
   }));
 if (ITEMS.length === 0) throw new Error(LIST_FILE + " is empty");
@@ -118,7 +122,7 @@ function buildWidget(r, family) {
       addLine(left, r.radical, Font.boldSystemFont(58), INK, 1, 0.5);
       addLine(left, r.name, Font.boldSystemFont(15), INK, 1, 0.6);
       addLine(left, r.pinyin, Font.semiboldSystemFont(14), RED, 1, 0.6);
-      addLine(left, r.meaning, Font.systemFont(13), GREY, 2, 0.6);
+      if (r.meaning) addLine(left, r.meaning, Font.systemFont(13), GREY, 2, 0.6);
       row.addSpacer(10);
       const right = row.addStack();
       right.layoutVertically();
@@ -141,7 +145,7 @@ function buildWidget(r, family) {
       info.layoutVertically();
       addLine(info, r.name, Font.boldSystemFont(22), INK, 1, 0.6);
       addLine(info, r.pinyin, Font.semiboldSystemFont(17), RED, 1, 0.6);
-      addLine(info, r.meaning, Font.systemFont(15), GREY, 2, 0.6);
+      if (r.meaning) addLine(info, r.meaning, Font.systemFont(15), GREY, 2, 0.6);
       top.addSpacer();
       lw.addSpacer(14);
       addLine(lw, "Examples", Font.semiboldSystemFont(12), GREY, 1, 0.8);
@@ -166,8 +170,7 @@ function buildWidget(r, family) {
       big.centerAlignText();
       const name = addLine(lw, r.name + "  " + r.pinyin, Font.semiboldSystemFont(12), RED, 1, 0.6);
       name.centerAlignText();
-      const m = addLine(lw, r.meaning, Font.systemFont(11), GREY, 1, 0.6);
-      m.centerAlignText();
+      if (r.meaning) addLine(lw, r.meaning, Font.systemFont(11), GREY, 1, 0.6).centerAlignText();
       if (r.examples[0]) {
         lw.addSpacer(4);
         const e = r.examples[0];
@@ -226,7 +229,7 @@ function esc(s) {
 const SPEAK = { "氵": "水", "亻": "人", "扌": "手", "艹": "草", "忄": "心", "辶": "绰", "讠": "言", "纟": "丝",
   "钅": "金", "饣": "食", "宀": "棉", "灬": "火", "衤": "衣", "王": "玉", "刂": "刀", "阝": "阜", "冫": "冰",
   "疒": "讷", "囗": "围", "犭": "犬", "礻": "示", "攵": "扑", "彳": "赤" };
-const playBtn = t => `<button class="play" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(t))})">Play</button>`;
+const playBtn = t => `<button class="play" data-say="${esc(t)}" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(t))})">Play</button>`;
 
 function detailHTML(r, words) {
   const blocks = r.examples.map(e => {
@@ -265,7 +268,7 @@ h2 { font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--g
 .foot { color:var(--grey); font-size:13px; margin-top:20px; }
 </style></head><body>
 <div class="top"><div class="rad">${esc(r.radical)}</div>
-<div><div class="name">${esc(r.name)}</div><div class="py">${esc(r.pinyin)} ${playBtn(SPEAK[r.radical] || r.radical)}</div><div class="mn">${esc(r.meaning)}</div></div></div>
+<div><div class="name">${esc(r.name)}</div><div class="py">${esc(r.pinyin)} ${playBtn(SPEAK[r.radical] || r.radical)}</div>${r.meaning ? `<div class="mn">${esc(r.meaning)}</div>` : ""}</div></div>
 <h2>Characters with this radical</h2>
 ${blocks}
 <div class="foot">${words.length ? "Words and sentences from your HSK lists (CC-CEDICT, Tatoeba)." : "Run Hourly Words once to get words and example sentences here."}</div>
@@ -285,8 +288,7 @@ function warmUp() {
   try { var u = new SpeechSynthesisUtterance(" "); u.volume = 0; u.lang = "zh-CN"; var v = zhVoice(); if (v) u.voice = v; speechSynthesis.speak(u); } catch (e) {}
 }
 document.addEventListener("touchstart", warmUp, { passive: true, capture: true });
-function say(t) {
-  var now = Date.now(); if (now - lastSay < 400) return; lastSay = now;
+function voice(t) {
   warmUp();
   if (keepAwake && keepAwake.paused) keepAwake.play().catch(function () {});
   if (!window.speechSynthesis) return;
@@ -294,6 +296,29 @@ function say(t) {
   var u = new SpeechSynthesisUtterance(t); u.lang = "zh-CN"; u.rate = 0.85;
   var v = zhVoice(); if (v) u.voice = v;
   speechSynthesis.speak(u);
+}
+// Recorded sound (audio/<text>.m4a on GitHub) plays at once; the page voice is the fallback.
+var AUDIO = "https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/audio/";
+var clips = {};
+function clip(t) {
+  if (clips[t]) return clips[t];
+  var c = { a: new Audio(), bad: false };
+  c.a.preload = "auto";
+  c.a.addEventListener("error", function () { c.bad = true; });
+  c.a.src = AUDIO + encodeURIComponent(t) + ".m4a";
+  try { c.a.load(); } catch (e) {}
+  return (clips[t] = c);
+}
+var btns = document.querySelectorAll("[data-say]");
+for (var b = 0; b < btns.length; b++) clip(btns[b].getAttribute("data-say"));
+function say(t) {
+  var now = Date.now(); if (now - lastSay < 400) return; lastSay = now;
+  var c = clip(t);
+  if (c.bad) { voice(t); return; }
+  for (var k in clips) if (clips[k] !== c) try { clips[k].a.pause(); } catch (e) {}
+  try { c.a.currentTime = 0; } catch (e) {}
+  var p = c.a.play();
+  if (p && p.catch) p.catch(function () { voice(t); });
 }
 function act(a) { location.href = "hanzi://" + encodeURIComponent(a); }
 </script></body></html>`;

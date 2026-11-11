@@ -130,8 +130,14 @@ func parseRadicals(_ text: String) -> [Radical] {
             guard let c = t.first else { return nil }
             return Example(char: c, pinyin: t.count > 1 ? t[1] : "", meaning: t.dropFirst(2).joined(separator: " "))
         }
-        out.append(Radical(radical: p[0], pinyin: p.count > 1 ? p[1] : "", name: p.count > 2 ? p[2] : "",
-                           meaning: p.count > 3 ? p[3] : "", examples: Array(examples.prefix(3))))
+        let name = p.count > 2 ? p[2] : ""
+        var meaning = p.count > 3 ? p[3] : ""
+        // "Big" and "big": the meaning only repeats the name, so it is not shown
+        let base = name.replacingOccurrences(of: "\\s*\\(.*?\\)", with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces).lowercased()
+        if meaning.lowercased() == base { meaning = "" }
+        out.append(Radical(radical: p[0], pinyin: p.count > 1 ? p[1] : "", name: name,
+                           meaning: meaning, examples: Array(examples.prefix(3))))
     }
     return out
 }
@@ -391,12 +397,15 @@ func wrapCard(_ content: NSView, width: CGFloat, inset: CGFloat, vInset: CGFloat
 // Radical card: radical, name, pinyin, meaning on the left; 3 examples on the right.
 func makeRadicalCard(_ r: Radical) -> NSView {
     let c = PaperInk.colors
-    let left = NSStackView(views: [
+    var leftViews: [NSView] = [
         makeLabel(r.radical, size: 56, weight: .bold, color: c.hanzi, maxWidth: 116, align: .left),
         makeLabel(r.name, size: 15, weight: .bold, color: c.hanzi, maxWidth: 116, align: .left),
         makeLabel(r.pinyin, size: 14, weight: .semibold, color: c.pinyin, maxWidth: 116, align: .left),
-        makeLabel(r.meaning, size: 13, weight: .regular, color: c.meaning, maxWidth: 116, align: .left),
-    ])
+    ]
+    if !r.meaning.isEmpty {
+        leftViews.append(makeLabel(r.meaning, size: 13, weight: .regular, color: c.meaning, maxWidth: 116, align: .left))
+    }
+    let left = NSStackView(views: leftViews)
     left.orientation = .vertical
     left.alignment = .leading
     left.spacing = 2
