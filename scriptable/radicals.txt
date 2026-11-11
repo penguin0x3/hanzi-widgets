@@ -1,0 +1,54 @@
+# 50 common radicals (bo thu), simplified forms
+# Format: radical | pinyin | Han-Viet name | meaning | examples
+# Examples: up to 3, split by ";", each "character pinyin meaning"
+# Lines starting with # are skipped. Add more lines any time.
+氵 | shuǐ | Thủy (ba chấm thủy) | nước | 河 hé sông; 海 hǎi biển; 洗 xǐ rửa, giặt
+亻 | rén | Nhân đứng | người | 你 nǐ bạn; 他 tā anh ấy; 住 zhù ở, sống
+口 | kǒu | Khẩu | miệng | 吃 chī ăn; 喝 hē uống; 叫 jiào gọi, tên là
+木 | mù | Mộc | cây, gỗ | 林 lín rừng; 树 shù cây; 桌 zhuō cái bàn
+扌 | shǒu | Thủ (tài gảy) | tay | 打 dǎ đánh; 找 zhǎo tìm; 换 huàn đổi
+艹 | cǎo | Thảo (thảo đầu) | cỏ | 花 huā hoa; 茶 chá trà; 药 yào thuốc
+女 | nǚ | Nữ | phụ nữ | 妈 mā mẹ; 姐 jiě chị gái; 好 hǎo tốt
+心 | xīn | Tâm | tim, lòng | 想 xiǎng nghĩ, muốn; 意 yì ý; 思 sī suy nghĩ
+忄 | xīn | Tâm đứng | tim, lòng | 忙 máng bận; 情 qíng tình cảm; 快 kuài nhanh
+日 | rì | Nhật | mặt trời, ngày | 明 míng sáng; 早 zǎo sớm; 时 shí thời gian
+月 | yuè | Nguyệt | mặt trăng; thịt (nhục) | 朋 péng bạn; 服 fú quần áo; 脸 liǎn mặt
+土 | tǔ | Thổ | đất | 地 dì đất; 在 zài ở; 场 chǎng sân, bãi
+辶 | chuò | Sước | bước đi | 这 zhè này; 进 jìn vào; 远 yuǎn xa
+讠 | yán | Ngôn | lời nói | 说 shuō nói; 话 huà lời nói; 语 yǔ ngôn ngữ
+纟 | sī | Mịch | sợi tơ | 红 hóng đỏ; 绿 lǜ xanh lục; 给 gěi cho
+钅 | jīn | Kim | kim loại | 钱 qián tiền; 银 yín bạc; 铅 qiān chì
+饣 | shí | Thực | ăn | 饭 fàn cơm; 饺 jiǎo sủi cảo; 馆 guǎn quán
+宀 | mián | Miên | mái nhà | 家 jiā nhà; 室 shì phòng; 安 ān yên ổn
+门 | mén | Môn | cửa | 间 jiān gian, giữa; 闭 bì đóng; 闹 nào ồn ào
+火 | huǒ | Hỏa | lửa | 灯 dēng đèn; 炒 chǎo xào; 烧 shāo đốt
+灬 | huǒ | Hỏa (bốn chấm hỏa) | lửa | 点 diǎn điểm, giờ; 热 rè nóng; 照 zhào chiếu
+石 | shí | Thạch | đá | 碗 wǎn bát; 破 pò vỡ; 码 mǎ mã số
+目 | mù | Mục | mắt | 眼 yǎn mắt; 睛 jīng con ngươi; 看 kàn xem
+田 | tián | Điền | ruộng | 男 nán nam; 界 jiè giới; 留 liú ở lại
+禾 | hé | Hòa | lúa | 秋 qiū mùa thu; 种 zhǒng loại; 租 zū thuê
+竹 | zhú | Trúc | tre (viết ⺮ khi ở trên) | 笔 bǐ bút; 等 děng đợi; 第 dì thứ (第一)
+米 | mǐ | Mễ | gạo | 粉 fěn bột; 糖 táng đường; 精 jīng tinh
+衤 | yī | Y (y đứng) | áo | 衬 chèn lót (衬衫 áo sơ mi); 衫 shān áo; 裤 kù quần
+王 | yù | Ngọc | ngọc (viết 王 khi đứng bên trái) | 玩 wán chơi; 球 qiú bóng; 现 xiàn hiện
+车 | chē | Xa | xe | 辆 liàng chiếc (xe); 转 zhuǎn chuyển; 输 shū thua
+贝 | bèi | Bối | vỏ sò, tiền | 贵 guì đắt; 费 fèi phí; 货 huò hàng hóa
+页 | yè | Hiệt | trang; đầu | 题 tí đề; 颜 yán màu (颜色); 顺 shùn thuận
+足 | zú | Túc | chân | 跑 pǎo chạy; 踢 tī đá; 路 lù đường
+雨 | yǔ | Vũ | mưa | 雪 xuě tuyết; 零 líng số không; 雷 léi sấm
+力 | lì | Lực | sức | 动 dòng động; 加 jiā thêm, cộng; 助 zhù giúp
+刂 | dāo | Đao (đao đứng) | dao | 到 dào đến; 别 bié đừng; 刻 kè khắc
+又 | yòu | Hựu | lại; tay phải | 友 yǒu bạn; 双 shuāng đôi; 发 fā gửi, phát
+大 | dà | Đại | to, lớn | 太 tài quá; 天 tiān trời, ngày; 奇 qí lạ
+山 | shān | Sơn | núi | 岛 dǎo đảo; 岸 àn bờ; 峰 fēng đỉnh núi
+阝 | fù | Phụ / Ấp | gò đất (bên trái); thành ấp (bên phải) | 院 yuàn viện; 都 dōu đều; 那 nà kia
+冫 | bīng | Băng (hai chấm thủy) | băng, lạnh | 冷 lěng lạnh; 冰 bīng băng; 准 zhǔn chuẩn
+疒 | nè | Nạch | bệnh tật | 病 bìng bệnh; 疼 téng đau; 痛 tòng đau
+广 | guǎng | Nghiễm | mái hiên | 店 diàn cửa hàng; 床 chuáng giường; 座 zuò chỗ ngồi
+囗 | wéi | Vi | vây quanh | 国 guó nước; 园 yuán vườn; 图 tú tranh, bản đồ
+犭 | quǎn | Khuyển | chó, thú | 狗 gǒu chó; 猫 māo mèo; 猪 zhū lợn
+子 | zǐ | Tử | con | 孩 hái trẻ con; 学 xué học; 字 zì chữ
+礻 | shì | Thị (kỳ) | thần, cúng | 礼 lǐ lễ; 社 shè xã; 祝 zhù chúc
+攵 | pū | Phộc | đánh nhẹ | 教 jiāo dạy; 收 shōu nhận; 数 shù số
+彳 | chì | Xích | bước chân trái | 很 hěn rất; 往 wǎng hướng về; 得 dé được
+人 | rén | Nhân | người | 个 gè cái; 会 huì biết; 今 jīn nay
