@@ -4,11 +4,22 @@ import ServiceManagement
 
 // MARK: - Data
 
+struct WordExample { let zh: String; let pinyin: String; let en: String }
+
 struct Word {
-    let hanzi: String
-    let pinyin: String
-    let meaning: String
+    var hanzi: String
+    var pinyin: String
+    var meaning: String          // short meaning, shown in the menu bar card and desktop card
+    var senses: [String] = []
+    var measure: String = ""
+    var example: WordExample? = nil
 }
+
+// Word lists on GitHub (same files the iPhone script downloads)
+let repoBase = "https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/"
+let allLevels = ["hsk1-2", "hsk3", "hsk4", "hsk5"]
+let levelNames = ["hsk1-2": "HSK 1-2", "hsk3": "HSK 3", "hsk4": "HSK 4", "hsk5": "HSK 5"]
+let updateDays = 7.0
 
 enum Store {
     static let supportDir: URL = {
@@ -20,6 +31,10 @@ enum Store {
     static let localList = supportDir.appendingPathComponent("words.txt")
     static let cloudList = URL(fileURLWithPath: NSHomeDirectory()
         + "/Library/Mobile Documents/iCloud~dk~simonbs~Scriptable/Documents/words.txt")
+    static let localMyWords = supportDir.appendingPathComponent("mywords.txt")
+    static let cloudMyWords = URL(fileURLWithPath: NSHomeDirectory()
+        + "/Library/Mobile Documents/iCloud~dk~simonbs~Scriptable/Documents/mywords.txt")
+    static func level(_ name: String) -> URL { supportDir.appendingPathComponent(name + ".json") }
     static let localRadicals = supportDir.appendingPathComponent("radicals.txt")
     static let cloudRadicals = URL(fileURLWithPath: NSHomeDirectory()
         + "/Library/Mobile Documents/iCloud~dk~simonbs~Scriptable/Documents/radicals.txt")
@@ -51,6 +66,48 @@ func refreshLocalCopy(from cloud: URL = Store.cloudList, to local: URL = Store.l
         try? data.write(to: local)
     }
     return true
+}
+
+// JSON level files: { "words": [ { hanzi, pinyin, short, senses, measure, example } ] }
+struct LevelFile: Decodable {
+    struct Ex: Decodable { let zh: String; let pinyin: String; let en: String }
+    struct Entry: Decodable {
+        let hanzi: String; let pinyin: String; let short: String?
+        let senses: [String]?; let measure: String?; let example: Ex?
+    }
+    let words: [Entry]
+}
+
+func parseLevel(_ data: Data) -> [Word]? {
+    guard let f = try? JSONDecoder().decode(LevelFile.self, from: data), !f.words.isEmpty else { return nil }
+    return f.words.map { e in
+        Word(hanzi: e.hanzi, pinyin: e.pinyin, meaning: e.short ?? e.senses?.first ?? "",
+             senses: e.senses ?? [], measure: e.measure ?? "",
+             example: e.example.map { WordExample(zh: $0.zh, pinyin: $0.pinyin, en: $0.en) })
+    }
+}
+
+// Download a file from GitHub when there is no local copy or it is older than maxAgeDays.
+// Blocking: call it off the main thread. Returns true when the local file changed.
+@discardableResult
+func downloadIfNeeded(_ remotePath: String, to local: URL, maxAgeDays: Double = updateDays, force: Bool = false,
+                      valid: (Data) -> Bool) -> Bool {
+    let fmgr = FileManager.default
+    if !force, let attrs = try? fmgr.attributesOfItem(atPath: local.path), let mod = attrs[.modificationDate] as? Date,
+       Date().timeIntervalSince(mod) < maxAgeDays * 86400 { return false }
+    let path = remotePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? remotePath
+    guard let url = URL(string: repoBase + path), let data = try? Data(contentsOf: url), valid(data) else { return false }
+    let old = try? Data(contentsOf: local)
+    if old == data {   // same content: only mark it as fresh
+        try? fmgr.setAttributes([.modificationDate: Date()], ofItemAtPath: local.path)
+        return false
+    }
+    try? data.write(to: local)
+    return true
+}
+
+func downloadLevel(_ level: String, force: Bool = false) -> Bool {
+    downloadIfNeeded("data/\(level).json", to: Store.level(level), force: force) { parseLevel($0) != nil }
 }
 
 // MARK: - Radicals (same file and same picking rule as the iPhone script Radicals.js)
@@ -115,9 +172,22 @@ func radicalIndex(count n: Int, slot: Int) -> Int {
     return order[slot % n]
 }
 
-func loadWords() -> [Word] {
-    guard let text = try? String(contentsOf: Store.localList, encoding: .utf8) else { return [] }
-    return parseWords(text)
+// Words of the chosen levels plus my words, without duplicates.
+// Falls back to the old words.txt copy when no level has been downloaded yet.
+func loadWords(levels: [String]) -> [Word] {
+    var out: [Word] = []
+    var seen = Set<String>()
+    for lv in levels {
+        guard let d = try? Data(contentsOf: Store.level(lv)), let ws = parseLevel(d) else { continue }
+        for w in ws where !seen.contains(w.hanzi) { seen.insert(w.hanzi); out.append(w) }
+    }
+    if out.isEmpty, let text = try? String(contentsOf: Store.localList, encoding: .utf8) {
+        for w in parseWords(text) where !seen.contains(w.hanzi) { seen.insert(w.hanzi); out.append(w) }
+    }
+    if let text = try? String(contentsOf: Store.localMyWords, encoding: .utf8) {
+        for w in parseWords(text) where !seen.contains(w.hanzi) { seen.insert(w.hanzi); out.append(w) }
+    }
+    return out
 }
 
 // MARK: - Engine (which word to show)
@@ -137,6 +207,14 @@ final class Engine {
         set { defaults.set(newValue, forKey: "interval") }
     }
 
+    var levels: [String] {
+        get {
+            let v = (defaults.array(forKey: "levels") as? [String] ?? []).filter { allLevels.contains($0) }
+            return v.isEmpty ? ["hsk1-2"] : v
+        }
+        set { defaults.set(newValue, forKey: "levels") }
+    }
+
     var current: Word? {
         guard let i = history.last, i < words.count else { return nil }
         return words[i]
@@ -148,7 +226,7 @@ final class Engine {
     }
 
     func load() {
-        words = loadWords()
+        words = loadWords(levels: levels)
         if defaults.string(forKey: "signature") != signature() {
             deck = []; history = []; forward = []
             defaults.set(signature(), forKey: "signature")
@@ -257,6 +335,40 @@ func makeCard(_ w: Word, width: CGFloat, inset: CGFloat = 16, vInset: CGFloat = 
     container.layoutSubtreeIfNeeded()
     container.frame = NSRect(x: 0, y: 0, width: width, height: container.fittingSize.height)
     return container
+}
+
+// Menu card: like the desktop card, plus numbered meanings, measure word and an example.
+func makeDetailCard(_ w: Word, width: CGFloat) -> NSView {
+    let inner = width - 32
+    var views: [NSView] = [makeCard(w, width: width)]
+    var lines: [NSView] = []
+    let senses = w.senses.count > 1 ? Array(w.senses.prefix(4)) : []
+    for (i, s) in senses.enumerated() {
+        lines.append(makeLabel("\(i + 1). \(s)", size: 13, weight: .regular, color: .labelColor, maxWidth: inner, align: .left))
+    }
+    if !w.measure.isEmpty {
+        lines.append(makeLabel("Measure word: \(w.measure)", size: 12, weight: .regular, color: .secondaryLabelColor,
+                               maxWidth: inner, align: .left))
+    }
+    if let e = w.example {
+        lines.append(makeLabel(e.zh, size: 17, weight: .regular, color: .labelColor, maxWidth: inner, align: .left))
+        lines.append(makeLabel(e.pinyin, size: 12, weight: .medium, color: rgb(0xA8392B), maxWidth: inner, align: .left))
+        lines.append(makeLabel(e.en, size: 12, weight: .regular, color: .secondaryLabelColor, maxWidth: inner, align: .left))
+    }
+    if !lines.isEmpty {
+        let st = NSStackView(views: lines)
+        st.orientation = .vertical
+        st.alignment = .leading
+        st.spacing = 3
+        let top = senses.count + (w.measure.isEmpty ? 0 : 1)
+        if top > 0 && top < lines.count { st.setCustomSpacing(10, after: lines[top - 1]) }
+        views.append(wrapCard(st, width: width, inset: 16, vInset: 4))
+    }
+    let all = NSStackView(views: views)
+    all.orientation = .vertical
+    all.alignment = .leading
+    all.spacing = 0
+    return wrapCard(all, width: width, inset: 0, vInset: 4)
 }
 
 // Put a stack inside a fixed-width container and size it to fit.
@@ -450,17 +562,30 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    // Refresh the local copy from iCloud in the background, then reload if the list changed.
-    func syncFromCloud() {
+    // In the background: download the chosen levels from GitHub (about once a week),
+    // copy my words and radicals from iCloud when allowed, then reload what changed.
+    func syncFromCloud(force: Bool = false) {
+        let levels = engine.levels
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            let before = try? Data(contentsOf: Store.localList)
-            refreshLocalCopy()
-            let after = try? Data(contentsOf: Store.localList)
+            var changed = false
+            for lv in levels { if downloadLevel(lv, force: force) { changed = true } }
+            let mineBefore = try? Data(contentsOf: Store.localMyWords)
+            refreshLocalCopy(from: Store.cloudMyWords, to: Store.localMyWords)
+            if (try? Data(contentsOf: Store.localMyWords)) != mineBefore { changed = true }
+            if levels.allSatisfy({ !FileManager.default.fileExists(atPath: Store.level($0).path) }) {
+                let before = try? Data(contentsOf: Store.localList)   // old words.txt, only as a fallback
+                refreshLocalCopy()
+                if (try? Data(contentsOf: Store.localList)) != before { changed = true }
+            }
             let radBefore = try? Data(contentsOf: Store.localRadicals)
-            refreshLocalCopy(from: Store.cloudRadicals, to: Store.localRadicals)
+            if !refreshLocalCopy(from: Store.cloudRadicals, to: Store.localRadicals) {
+                downloadIfNeeded("scriptable/radicals.txt", to: Store.localRadicals, maxAgeDays: 30) {
+                    !parseRadicals(String(decoding: $0, as: UTF8.self)).isEmpty
+                }
+            }
             let radAfter = try? Data(contentsOf: Store.localRadicals)
             DispatchQueue.main.async {
-                if before != after {
+                if changed {
                     self?.engine.load()
                     self?.render()
                 }
@@ -501,38 +626,54 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
             card.view = cardView(w)
             menu.addItem(card)
             menu.addItem(.separator())
-            add("Phát âm", #selector(speak), key: "s")
+            add("Play sound", #selector(speak), key: "s")
         } else {
-            let empty = NSMenuItem(title: "Không có từ nào. Kiểm tra words.txt", action: nil, keyEquivalent: "")
+            let empty = NSMenuItem(title: "No words yet. Check the internet.", action: nil, keyEquivalent: "")
             empty.isEnabled = false
             menu.addItem(empty)
         }
-        add("Từ tiếp", #selector(nextWord), key: "n")
+        add("Next word", #selector(nextWord), key: "n")
         menu.addItem(.separator())
+
+        let lvMenu = NSMenu()
+        for lv in allLevels {
+            let it = NSMenuItem(title: levelNames[lv] ?? lv, action: #selector(toggleLevel(_:)), keyEquivalent: "")
+            it.target = self
+            it.representedObject = lv
+            it.state = engine.levels.contains(lv) ? .on : .off
+            lvMenu.addItem(it)
+        }
+        lvMenu.addItem(.separator())
+        let upd = NSMenuItem(title: "Update lists now", action: #selector(updateNow), keyEquivalent: "")
+        upd.target = self
+        lvMenu.addItem(upd)
+        let lvParent = NSMenuItem(title: "Levels (\(engine.words.count) words)", action: nil, keyEquivalent: "")
+        lvParent.submenu = lvMenu
+        menu.addItem(lvParent)
 
         let sub = NSMenu()
         for m in [1, 5, 10, 30, 60] {
-            let it = NSMenuItem(title: "\(m) phút", action: #selector(setInterval(_:)), keyEquivalent: "")
+            let it = NSMenuItem(title: m == 1 ? "1 minute" : "\(m) minutes", action: #selector(setInterval(_:)), keyEquivalent: "")
             it.target = self
             it.tag = m
             it.state = engine.intervalMin == m ? .on : .off
             sub.addItem(it)
         }
-        let parent = NSMenuItem(title: "Đổi từ mỗi", action: nil, keyEquivalent: "")
+        let parent = NSMenuItem(title: "New word every", action: nil, keyEquivalent: "")
         parent.submenu = sub
         menu.addItem(parent)
 
-        let deskItem = add("Hiện ô từ vựng", #selector(toggleDesk))
+        let deskItem = add("Show word card", #selector(toggleDesk))
         deskItem.state = deskOn ? .on : .off
-        let radItem = add("Hiện ô bộ thủ", #selector(toggleRad))
+        let radItem = add("Show radical card", #selector(toggleRad))
         radItem.state = radOn ? .on : .off
-        let login = add("Mở khi đăng nhập", #selector(toggleLogin))
+        let login = add("Open at login", #selector(toggleLogin))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(.separator())
-        add("Thoát", #selector(quit), key: "q")
+        add("Quit", #selector(quit), key: "q")
     }
 
-    func cardView(_ w: Word) -> NSView { makeCard(w, width: 280) }
+    func cardView(_ w: Word) -> NSView { makeDetailCard(w, width: 320) }
 
     // MARK: actions
 
@@ -546,6 +687,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func nextWord() { engine.advance(); render() }
+
+    @objc func toggleLevel(_ sender: NSMenuItem) {
+        guard let lv = sender.representedObject as? String else { return }
+        var set = engine.levels
+        if let i = set.firstIndex(of: lv) { if set.count > 1 { set.remove(at: i) } } else { set.append(lv) }
+        engine.levels = allLevels.filter { set.contains($0) }
+        engine.load()
+        render()
+        syncFromCloud()   // downloads a new level, then reloads
+    }
+
+    @objc func updateNow() { syncFromCloud(force: true) }
 
     @objc func setInterval(_ sender: NSMenuItem) {
         engine.intervalMin = sender.tag
@@ -595,11 +748,27 @@ func runSelfTest() -> Never {
     check("parse: pinyin and meaning", sample[0].pinyin == "bái" && sample[0].meaning == "trắng")
     check("parse: extra columns joined", sample[1].meaning == "xin lỗi / thêm")
 
+    for lv in allLevels { _ = downloadLevel(lv) }
+    for lv in allLevels {
+        let ws = (try? Data(contentsOf: Store.level(lv))).flatMap(parseLevel) ?? []
+        check("level \(lv) downloaded and parsed (\(ws.count) words)", ws.count > 200 && ws.allSatisfy { !$0.meaning.isEmpty })
+    }
+    let wan = loadWords(levels: ["hsk1-2"]).first { $0.hanzi == "晚上" }
+    check("detail data: senses, measure word, example", (wan?.senses.count ?? 0) >= 2 && wan?.measure == "个 gè" && wan?.example != nil)
+    let both = loadWords(levels: ["hsk1-2", "hsk3"])
+    check("levels merged without duplicates", Set(both.map { $0.hanzi }).count == both.count)
+
     let suite = "machanzi.selftest"
     UserDefaults.standard.removePersistentDomain(forName: suite)
     let e = Engine(defaults: UserDefaults(suiteName: suite)!)
     e.load()
     check("list loaded (more than 900 words)", e.words.count > 900)
+    e.levels = ["hsk4"]
+    e.load()
+    let hsk4 = Set(loadWords(levels: ["hsk4"]).map { $0.hanzi })
+    check("changing levels resets the deck to the new level", e.current.map { hsk4.contains($0.hanzi) } ?? false)
+    e.levels = ["hsk1-2"]
+    e.load()
 
     var seen = Set<Int>()
     seen.insert(e.history.last!)

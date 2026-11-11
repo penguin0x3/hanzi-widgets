@@ -21,8 +21,15 @@ const GREY = new Color("#6B5E50");
 
 const fm = FileManager.iCloud();
 const listPath = fm.joinPath(fm.documentsDirectory(), LIST_FILE);
+if (!fm.fileExists(listPath)) { // first run: get the list from GitHub
+  try {
+    const r = new Request("https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/scriptable/" + LIST_FILE);
+    const t = await r.loadString();
+    if (t && t.includes("|")) fm.writeString(listPath, t);
+  } catch (e) {}
+}
 if (!fm.fileExists(listPath)) {
-  throw new Error("Missing " + LIST_FILE + " in iCloud Drive > Scriptable");
+  throw new Error("Missing " + LIST_FILE + " in iCloud Drive > Scriptable. Connect to the internet and run Radicals again.");
 }
 await fm.downloadFileFromiCloud(listPath);
 

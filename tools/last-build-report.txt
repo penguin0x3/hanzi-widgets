@@ -1,0 +1,5 @@
+hsk1-2: 973 words, 933 with example, 0 not in CC-CEDICT: 
+hsk3: 298 words, 298 with example, 0 not in CC-CEDICT: 
+hsk4: 598 words, 581 with example, 0 not in CC-CEDICT: 
+hsk5: 1298 words, 1145 with example, 0 not in CC-CEDICT: 
+dict.txt: 114596 entries
