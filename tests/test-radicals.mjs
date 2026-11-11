@@ -84,6 +84,9 @@ const exChars = lines.find(l => l.split("|")[0].trim() === a.texts[0]).split("|"
 check("detail page has one block per example character", (page.match(/class="card"/g) || []).length === exChars.length && exChars.every(c => page.includes('<span class="ch">' + c)));
 check("detail page has Play buttons", (page.match(/>Play</g) || []).length >= exChars.length);
 const chePage = (await run(null, false, t, { dir: tmp, query: { radical: "车" } })).html[0];
+check("radical itself has a Play button", /class="py">chē <button class="play"[^>]*say\(&quot;车&quot;\)/.test(chePage));
+const waterPage = (await run(null, false, t, { dir: tmp, query: { radical: "氵" } })).html[0];
+check("Play for 氵 reads 水", waterPage.includes('say(&quot;水&quot;)'));
 check("tap on widget opens that radical", chePage.includes('<div class="rad">车</div>'));
 check("车 page shows an example sentence with 辆", /class="zh">[^<]*辆/.test(chePage));
 const nx = await run(null, false, t, { dir: tmp, query: { radical: "车" }, web: ["next", "next"] });

@@ -221,6 +221,11 @@ function wordFor(ch, words) {
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
+// Radical forms like 氵 have no sound of their own in the voice, so Play reads a
+// character with the same reading (氵 shuǐ -> 水).
+const SPEAK = { "氵": "水", "亻": "人", "扌": "手", "艹": "草", "忄": "心", "辶": "绰", "讠": "言", "纟": "丝",
+  "钅": "金", "饣": "食", "宀": "棉", "灬": "火", "衤": "衣", "王": "玉", "刂": "刀", "阝": "阜", "冫": "冰",
+  "疒": "讷", "囗": "围", "犭": "犬", "礻": "示", "攵": "扑", "彳": "赤" };
 const playBtn = t => `<button class="play" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(t))})">Play</button>`;
 
 function detailHTML(r, words) {
@@ -260,7 +265,7 @@ h2 { font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--g
 .foot { color:var(--grey); font-size:13px; margin-top:20px; }
 </style></head><body>
 <div class="top"><div class="rad">${esc(r.radical)}</div>
-<div><div class="name">${esc(r.name)}</div><div class="py">${esc(r.pinyin)}</div><div class="mn">${esc(r.meaning)}</div></div></div>
+<div><div class="name">${esc(r.name)}</div><div class="py">${esc(r.pinyin)} ${playBtn(SPEAK[r.radical] || r.radical)}</div><div class="mn">${esc(r.meaning)}</div></div></div>
 <h2>Characters with this radical</h2>
 ${blocks}
 <div class="foot">${words.length ? "Words and sentences from your HSK lists (CC-CEDICT, Tatoeba)." : "Run Hourly Words once to get words and example sentences here."}</div>
