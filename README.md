@@ -5,7 +5,7 @@ Learn Chinese without opening an app. New words and radicals show up on your iPh
 - **Hourly Words** (iPhone Lock Screen or Home Screen): one word at a time, with hanzi, pinyin and an English meaning. Tap it for all meanings, the measure word, an example sentence and sound. Mark words as known so they show up less.
 - **Levels:** HSK 1-2, HSK 3, HSK 4, HSK 5. Lists download by themselves from this repo and work offline after that.
 - **Add Word:** share a Chinese word from any app to add it to your own list. Pinyin and meaning are filled in.
-- **Radicals** (iPhone Home Screen): one of 50 common radicals (bo thu), with 3 example characters.
+- **Radicals** (iPhone Home Screen): one of 50 common radicals, with 3 example characters.
 - **MacHanzi** (Mac, optional): the same words in the menu bar, plus a word card and a radical card on the desktop.
 
 Setup guide: [GUIDE.md](GUIDE.md)

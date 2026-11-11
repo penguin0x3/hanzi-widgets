@@ -280,7 +280,7 @@ ${ex ? `<h2>Example</h2><div class="ex"><div class="zh">${esc(ex.zh)}
 <div class="foot">Seen ${countSeen(pack.words)} of ${pack.words.length} words in your levels.
 ${ex ? "<br>Example from Tatoeba. " : "<br>"}Meanings from CC-CEDICT.</div>
 <div class="bar">
-<button id="known" class="${known ? "on" : ""}" onclick="act('known')">${known ? "Known" : "Mark known"}</button>
+<button id="known" class="${known ? "on" : ""}" onclick="toggleKnown()">${known ? "Known" : "Mark known"}</button>
 <button onclick="act('next')">Next word</button></div>
 <script>
 function say(t) {
@@ -291,34 +291,43 @@ function say(t) {
     speechSynthesis.speak(u);
   } catch (e) { act("speak:" + t); }
 }
-window.__wait = function (cb) { window.__cb = cb; };
-function act(a) { if (window.__cb) { var c = window.__cb; window.__cb = null; c(a); } }
-function setKnown(k) { var b = document.getElementById("known"); b.className = k ? "on" : ""; b.textContent = k ? "Known" : "Mark known"; }
+function act(a) { location.href = "hanzi://" + encodeURIComponent(a); }
+function toggleKnown() {
+  var b = document.getElementById("known"), on = b.className !== "on";
+  b.className = on ? "on" : ""; b.textContent = on ? "Known" : "Mark known"; act("known");
+}
 </script></body></html>`;
 }
 
+// The page asks for actions by opening "hanzi://<action>" links. We catch them
+// in shouldAllowRequest and cancel the navigation, so the page stays open.
 async function showDetail(first, pack) {
   const wv = new WebView();
   let w = first;
-  let deck = { deck: [] };
-  await wv.loadHTML(detailHTML(w, pack));
-  let closed = false;
-  const done = wv.present(true).then(() => { closed = true; return "__closed"; });
-  while (!closed) {
-    const a = await Promise.race([done, wv.evaluateJavaScript("window.__wait(completion)", true)]);
-    if (a === "__closed" || closed) break;
+  const deck = { deck: [] };
+  let busy = Promise.resolve();
+  async function handle(a) {
     if (a === "known") {
       if (progress.known[w.hanzi]) delete progress.known[w.hanzi]; else progress.known[w.hanzi] = 1;
       saveProgress();
-      await wv.evaluateJavaScript("setKnown(" + !!progress.known[w.hanzi] + ")");
     } else if (a === "next") {
       w = nextFromDeck(deck, pack);
       if (!progress.seen[w.hanzi]) { progress.seen[w.hanzi] = 1; saveProgress(); }
       await wv.loadHTML(detailHTML(w, pack));
-    } else if (typeof a === "string" && a.startsWith("speak:")) {
+    } else if (a.startsWith("speak:")) {
       Speech.speak(a.slice(6));
     }
   }
+  wv.shouldAllowRequest = req => {
+    const u = String((req && req.url) || "");
+    if (!u.startsWith("hanzi://")) return true;
+    const a = decodeURIComponent(u.slice(8));
+    busy = busy.then(() => handle(a)).catch(e => console.log("action failed: " + e));
+    return false;
+  };
+  await wv.loadHTML(detailHTML(w, pack));
+  await wv.present(true);
+  await busy;
 }
 
 // ---------- menu in the app ----------

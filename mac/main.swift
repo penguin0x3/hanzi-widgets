@@ -115,7 +115,7 @@ func downloadLevel(_ level: String, force: Bool = false) -> Bool {
 struct Example { let char: String; let pinyin: String; let meaning: String }
 struct Radical { let radical: String; let pinyin: String; let name: String; let meaning: String; let examples: [Example] }
 
-// radical | pinyin | Han-Viet name | meaning | examples ("河 hé sông; 海 hǎi biển; ...")
+// radical | pinyin | name | meaning | examples ("河 hé river; 海 hǎi sea; ...")
 func parseRadicals(_ text: String) -> [Radical] {
     var out: [Radical] = []
     for raw in text.components(separatedBy: .newlines) {

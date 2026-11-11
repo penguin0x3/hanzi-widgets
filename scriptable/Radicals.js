@@ -2,10 +2,10 @@
 // These must be at the very top of the file. Do not edit.
 // icon-color: deep-brown; icon-glyph: language;
 
-// One Chinese radical (bo thu) at a time, for Home Screen widgets.
+// One Chinese radical at a time, for Home Screen widgets.
 // Best size: medium (radical on the left, 3 example characters on the right).
 // Data: radicals.txt in iCloud Drive > Scriptable, one radical per line:
-//   radical | pinyin | Han-Viet name | meaning | examples
+//   radical | pinyin | name | meaning | examples
 //   examples: up to 3, split by ";", each "character pinyin meaning"
 // Every widget shows the same radical at the same time, and every radical
 // appears once before any of them repeats. No state file is needed.
@@ -33,7 +33,7 @@ if (!fm.fileExists(listPath)) {
 }
 await fm.downloadFileFromiCloud(listPath);
 
-// "河 hé sông" -> { char: "河", pinyin: "hé", meaning: "sông" }
+// "河 hé river" -> { char: "河", pinyin: "hé", meaning: "river" }
 function parseExample(s) {
   const parts = s.trim().split(/\s+/);
   return { char: parts[0] || "", pinyin: parts[1] || "", meaning: parts.slice(2).join(" ") };
@@ -141,7 +141,7 @@ function buildWidget(r, family) {
       addLine(info, r.meaning, Font.systemFont(15), GREY, 2, 0.6);
       top.addSpacer();
       lw.addSpacer(14);
-      addLine(lw, "Ví dụ", Font.semiboldSystemFont(12), GREY, 1, 0.8);
+      addLine(lw, "Examples", Font.semiboldSystemFont(12), GREY, 1, 0.8);
       lw.addSpacer(6);
       r.examples.forEach((e, i) => {
         if (i > 0) lw.addSpacer(10);

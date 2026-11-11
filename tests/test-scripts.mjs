@@ -16,7 +16,7 @@ function newDir() { return fs.mkdtempSync(path.join(os.tmpdir(), "scriptable-"))
 // opts: { dir, family, widget, param, query, shared, alerts: [answers], web: [actions], offline }
 async function run(file, opts) {
   const src = fs.readFileSync(path.join(ROOT, "scriptable", file), "utf8");
-  const out = { texts: [], alerts: [], speak: [], html: [], requests: 0 };
+  const out = { texts: [], alerts: [], speak: [], html: [], allowed: [], requests: 0 };
   const answers = [...(opts.alerts || [])];
   const webActions = [...(opts.web || [])];
   const mkStack = () => ({
@@ -52,11 +52,13 @@ async function run(file, opts) {
   }
   class WebView {
     async loadHTML(h) { out.html.push(h); }
-    present() { return new Promise(res => { this._close = res; }); }
-    async evaluateJavaScript(js, cb) {
-      if (!cb) return;
-      if (!webActions.length) { setTimeout(() => this._close(), 0); return new Promise(() => {}); }
-      return webActions.shift();
+    async evaluateJavaScript() {}
+    async present() { // the user taps the page buttons, then Close
+      for (const a of webActions) {
+        const allowed = this.shouldAllowRequest({ url: "hanzi://" + encodeURIComponent(a) });
+        out.allowed.push(allowed);
+        await new Promise(r => setTimeout(r, 5));
+      }
     }
   }
   const env = {
@@ -178,6 +180,9 @@ check("Next word loads another word", o.html.length === 2 && !o.html[1].includes
 check("speech fallback uses Speech.speak", o.speak[0] === "晚上");
 o = await run("Hourly Words.js", { dir, query: { word: "晚上", levels: "hsk1-2" }, web: ["known"] });
 check("Mark known again undoes it", !read(dir, "hanzi-progress.json").known["晚上"]);
+check("page actions are caught and the page stays open", o.allowed.length === 1 && o.allowed[0] === false);
+check("detail page does not use the callback loop", !page.includes("__wait") && page.includes('location.href = "hanzi://"'));
+check("Mark known button updates on the page", page.includes("toggleKnown()"));
 check("detail page escapes HTML", !/<li>[^<]*<script/.test(page));
 
 // ---------- menu ----------
