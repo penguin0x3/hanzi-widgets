@@ -9,7 +9,7 @@
 // Word lists download from GitHub and are saved in iCloud Drive > Scriptable.
 // Your own words go in mywords.txt (use the Add Word script), one per line: hanzi | pinyin | meaning
 
-const REPO = "https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/";
+const REPO = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/";
 const LEVELS = ["hsk1-2", "hsk3", "hsk4", "hsk5"];
 const LEVEL_NAMES = { "hsk1-2": "HSK 1-2", hsk3: "HSK 3", hsk4: "HSK 4", hsk5: "HSK 5", mine: "My words" };
 const UPDATE_DAYS = 7;      // check GitHub for a new list about once a week

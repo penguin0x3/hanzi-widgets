@@ -14,7 +14,7 @@ Get **Scriptable** (free) from the App Store and open it once.
 
 ## Step 2. Add the Install script
 
-1. On the iPhone, open this link: [Install.js (raw)](https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/scriptable/Install.js). Press and hold the text, tap **Select All**, then **Copy**.
+1. On the iPhone, open this link: [Install.js (raw)](https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/scriptable/Install.js). Press and hold the text, tap **Select All**, then **Copy**.
 2. In Scriptable, tap **+** (top right), paste the code, and tap the title at the top to rename it to `Install`.
 3. Tap **Done**, then tap `Install` to run it, then tap **Install**.
 

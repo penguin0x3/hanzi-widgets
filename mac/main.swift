@@ -16,7 +16,7 @@ struct Word {
 }
 
 // Word lists on GitHub (same files the iPhone script downloads)
-let repoBase = "https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/"
+let repoBase = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/"
 let allLevels = ["hsk1-2", "hsk3", "hsk4", "hsk5"]
 let levelNames = ["hsk1-2": "HSK 1-2", "hsk3": "HSK 3", "hsk4": "HSK 4", "hsk5": "HSK 5"]
 let updateDays = 7.0

@@ -6,7 +6,7 @@
 // Run it again any time to update the scripts. Your settings, progress and
 // mywords.txt are not touched.
 
-const REPO = "https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/";
+const REPO = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/";
 const FILES = ["Hourly Words.js", "Radicals.js", "Add Word.js", "radicals.txt"];
 const fm = FileManager.iCloud();
 const dir = fm.documentsDirectory();

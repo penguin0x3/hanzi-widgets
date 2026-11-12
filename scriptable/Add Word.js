@@ -7,7 +7,7 @@
 // - Or run this script and type the word.
 // Pinyin and meaning are filled in from CC-CEDICT (downloaded once, about 7 MB).
 
-const REPO = "https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/";
+const REPO = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/";
 const fm = FileManager.iCloud();
 const dir = fm.documentsDirectory();
 const path = name => fm.joinPath(dir, name);

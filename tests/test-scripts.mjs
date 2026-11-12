@@ -6,7 +6,7 @@ import os from "os";
 import path from "path";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
-const REPO = "https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/";
+const REPO = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/";
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 let fails = 0;
 const check = (name, ok) => { console.log((ok ? "PASS " : "FAIL ") + name); if (!ok) fails++; };

@@ -26,7 +26,7 @@ const fm = FileManager.iCloud();
 const listPath = fm.joinPath(fm.documentsDirectory(), LIST_FILE);
 if (!fm.fileExists(listPath)) { // first run: get the list from GitHub
   try {
-    const r = new Request("https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/scriptable/" + LIST_FILE);
+    const r = new Request("https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/scriptable/" + LIST_FILE);
     const t = await r.loadString();
     if (t && t.includes("|")) fm.writeString(listPath, t);
   } catch (e) {}
@@ -186,7 +186,7 @@ function buildWidget(r, family) {
 
 // ---------- detail page ----------
 const LEVEL_FILES = ["hsk1-2", "hsk3", "hsk4", "hsk5"];
-const REPO = "https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/";
+const REPO = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/";
 
 // Words from all HSK lists (lowest level first). A missing list is downloaded once
 // (all 4 are about 550 KB) and saved next to the ones Hourly Words uses.
