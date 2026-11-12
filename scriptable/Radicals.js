@@ -229,7 +229,7 @@ function esc(s) {
 const SPEAK = { "氵": "水", "亻": "人", "扌": "手", "艹": "草", "忄": "心", "辶": "绰", "讠": "言", "纟": "丝",
   "钅": "金", "饣": "食", "宀": "棉", "灬": "火", "衤": "衣", "王": "玉", "刂": "刀", "阝": "阜", "冫": "冰",
   "疒": "讷", "囗": "围", "犭": "犬", "礻": "示", "攵": "扑", "彳": "赤" };
-const playBtn = t => `<button class="play" data-say="${esc(t)}" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(t))})">Play</button>`;
+const playBtn = t => `<button class="play" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(t))})">Play</button>`;
 
 function detailHTML(r, words) {
   const blocks = r.examples.map(e => {
@@ -297,28 +297,9 @@ function voice(t) {
   var v = zhVoice(); if (v) u.voice = v;
   speechSynthesis.speak(u);
 }
-// Recorded sound (audio/<text>.m4a on GitHub) plays at once; the page voice is the fallback.
-var AUDIO = "https://raw.githubusercontent.com/0xpenguin2/hanzi-widgets/main/audio/";
-var clips = {};
-function clip(t) {
-  if (clips[t]) return clips[t];
-  var c = { a: new Audio(), bad: false };
-  c.a.preload = "auto";
-  c.a.addEventListener("error", function () { c.bad = true; });
-  c.a.src = AUDIO + encodeURIComponent(t) + ".m4a";
-  try { c.a.load(); } catch (e) {}
-  return (clips[t] = c);
-}
-var btns = document.querySelectorAll("[data-say]");
-for (var b = 0; b < btns.length; b++) clip(btns[b].getAttribute("data-say"));
 function say(t) {
   var now = Date.now(); if (now - lastSay < 400) return; lastSay = now;
-  var c = clip(t);
-  if (c.bad) { voice(t); return; }
-  for (var k in clips) if (clips[k] !== c) try { clips[k].a.pause(); } catch (e) {}
-  try { c.a.currentTime = 0; } catch (e) {}
-  var p = c.a.play();
-  if (p && p.catch) p.catch(function () { voice(t); });
+  voice(t);
 }
 function act(a) { location.href = "hanzi://" + encodeURIComponent(a); }
 </script></body></html>`;

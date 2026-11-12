@@ -61,7 +61,7 @@ In a widget's settings, type a level in **Parameter**, for example `hsk4` or `hs
 
 **The widget says "No words yet".** Open Scriptable, run `Hourly Words` once with internet, then wait for the next refresh.
 
-**Play has no sound.** Play uses recorded sound from the internet, so it works in silent mode too. Turn up the volume. Without internet it uses the iPhone voice, which needs the ring switch on and a Chinese voice (Settings > Accessibility > Spoken Content > Voices > Chinese).
+**Play has no sound.** Play uses the Chinese voice of the iPhone and also works in silent mode. Turn up the volume. If it is still quiet, download a Chinese voice: Settings > Accessibility > Spoken Content > Voices > Chinese.
 
 **How do I see my progress?** Run `Hourly Words` and tap **Progress**. It shows how many words you have seen and marked known in each level.
 

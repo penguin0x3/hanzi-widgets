@@ -86,7 +86,7 @@ check("detail page has Play buttons", (page.match(/>Play</g) || []).length >= ex
 const chePage = (await run(null, false, t, { dir: tmp, query: { radical: "车" } })).html[0];
 check("radical itself has a Play button", /class="py">chē <button class="play"[^>]*say\(&quot;车&quot;\)/.test(chePage));
 const waterPage = (await run(null, false, t, { dir: tmp, query: { radical: "氵" } })).html[0];
-check("radical page preloads recorded audio", chePage.includes('data-say="辆"') && chePage.includes("audio/"));
+check("radical page has no recorded audio", !chePage.includes("data-say") && !chePage.includes("main/audio/") && chePage.includes("function voice("));
 check("Play for 氵 reads 水", waterPage.includes('say(&quot;水&quot;)'));
 const bigPage = (await run(null, false, t, { dir: tmp, query: { radical: "大" } })).html[0];
 check("meaning that repeats the name is hidden (Big / big)", bigPage.includes('<div class="name">Big</div>') && !bigPage.includes('<div class="mn">big</div>'));
