@@ -188,6 +188,44 @@ check("detail page does not use the callback loop", !page.includes("__wait") && 
 check("Mark known button updates on the page", page.includes("toggleKnown()"));
 check("detail page escapes HTML", !/<li>[^<]*<script/.test(page));
 
+// ---------- review of tapped words ----------
+dir = newDir();
+fs.writeFileSync(path.join(dir, "hanzi-settings.json"), JSON.stringify({ levels: ["hsk3"] }));
+const DAY = 24 * 60 * 60 * 1000;
+const setProgress = f => { const p = read(dir, "hanzi-progress.json"); f(p); fs.writeFileSync(path.join(dir, "hanzi-progress.json"), JSON.stringify(p)); };
+const expire = () => { const p = path.join(dir, "hanzi-widget-state.json"); if (fs.existsSync(p)) { const s = read(dir, "hanzi-widget-state.json"); if (s.hsk3) s.hsk3.until = 0; fs.writeFileSync(p, JSON.stringify(s)); } };
+const widgetWord = async () => { expire(); const r = await run("Hourly Words.js", { dir, widget: true, family: "accessoryRectangular" }); return decodeURIComponent(r.widget.url.match(/word=([^&]+)/)[1]); };
+const rw = (await widgetWord());
+await run("Hourly Words.js", { dir, query: { word: rw, levels: "hsk3" }, web: [] });
+let rv = read(dir, "hanzi-progress.json").review[rw];
+check("tapping the widget word puts it in review for 1 day", rv && rv.step === 0 && Math.abs(rv.due - Date.now() - DAY) < 60000);
+let early = 0;
+for (let i = 0; i < 20; i++) if ((await widgetWord()) === rw) early++;
+check("a review word does not come back before its day", early <= 1);
+setProgress(p => { p.review[rw].due = Date.now() - 1000; });
+check("a due review word shows at the next refresh", (await widgetWord()) === rw);
+check("a shown review word waits for a tap", read(dir, "hanzi-progress.json").review[rw].due === 0);
+await run("Hourly Words.js", { dir, query: { word: rw, levels: "hsk3" }, web: [] });
+rv = read(dir, "hanzi-progress.json").review[rw];
+check("tapping it again waits 3 days", rv.step === 1 && Math.abs(rv.due - Date.now() - 3 * DAY) < 60000);
+await run("Hourly Words.js", { dir, query: { word: rw, levels: "hsk3" }, web: [] });
+check("a second tap on the same day does not skip a step", read(dir, "hanzi-progress.json").review[rw].step === 1);
+setProgress(p => { p.review[rw] = { step: 2, due: 0, shown: Date.now() }; });
+await run("Hourly Words.js", { dir, query: { word: rw, levels: "hsk3" }, web: [] });
+check("the wait stops growing at 7 days", read(dir, "hanzi-progress.json").review[rw].step === 2);
+setProgress(p => { p.review[rw] = { step: 1, due: 0, shown: Date.now() - 2 * DAY }; });
+await widgetWord();
+check("a review word not tapped leaves the review list", !read(dir, "hanzi-progress.json").review[rw]);
+await run("Hourly Words.js", { dir, query: { word: rw, levels: "hsk3" }, web: ["known"] });
+setProgress(p => { p.review[rw].due = Date.now() - 1000; });
+await widgetWord();
+check("a known word leaves the review list", !read(dir, "hanzi-progress.json").review[rw]);
+o = await run("Hourly Words.js", { dir, query: { word: rw, levels: "hsk3" }, web: [] });
+check("tapping a known word does not add it to review", !read(dir, "hanzi-progress.json").review[rw]);
+o = await run("Hourly Words.js", { dir, query: { word: rw, levels: "hsk3" }, web: ["known", "next"] });
+const nextW = (o.html[1].match(/<div class="hanzi">([^<]+)<\/div>/) || [])[1];
+check("Next word on the page is not added to review", nextW && !read(dir, "hanzi-progress.json").review[nextW]);
+
 // ---------- menu ----------
 dir = newDir();
 o = await run("Hourly Words.js", { dir, alerts: ["Choose levels", "HSK 4", "HSK 1-2", -1, 0, -1] });

@@ -34,6 +34,8 @@ You now have 3 scripts: `Hourly Words`, `Radicals` and `Add Word`. Run `Install`
 
 Tap the widget at any time to open the detail page: all meanings, measure word, an example sentence, and **Play** for the sound. Tap **Mark known** for words you already know: they show up much less often. Tap **Next word** to keep going.
 
+A word you tap on the Lock Screen comes back the next day for a quick review. Tap it again when it comes back and it returns after 3 days, then after 7 days. If you do not tap it, it goes back to the normal mix.
+
 ## Step 5. Add the Home Screen widget (radicals)
 
 1. Press and hold the Home Screen, tap **Edit**, then **Add Widget**.

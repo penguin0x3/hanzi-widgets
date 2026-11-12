@@ -14,6 +14,7 @@ const LEVELS = ["hsk1-2", "hsk3", "hsk4", "hsk5"];
 const LEVEL_NAMES = { "hsk1-2": "HSK 1-2", hsk3: "HSK 3", hsk4: "HSK 4", hsk5: "HSK 5", mine: "My words" };
 const UPDATE_DAYS = 7;      // check GitHub for a new list about once a week
 const KNOWN_RATE = 0.1;     // a known word shows up about 1 time in 10 compared with other words
+const REVIEW_DAYS = [1, 3, 7]; // a word you tap on the widget comes back after 1 day; tap it again: 3 days, then 7
 const WIDGET_MINUTES = 0.5; // ask iOS to refresh this often; iOS decides the real time (often 5-30 minutes)
 
 // Lock Screen font sizes: change these numbers to make text bigger or smaller
@@ -109,6 +110,7 @@ if (!parseLevels((settings.levels || []).join(","))) settings.levels = ["hsk1-2"
 const progress = await readJSON(PROGRESS, {});
 progress.known = progress.known || {};
 progress.seen = progress.seen || {};
+progress.review = progress.review || {}; // hanzi -> { step, due } (due 0 = shown, waiting for a tap)
 const saveProgress = () => writeJSON(PROGRESS, progress);
 
 // ---------- picking words ----------
@@ -134,6 +136,33 @@ function nextFromDeck(st, pack) {
     st.deck = newDeck(pack.words);
   }
   return pack.words[0];
+}
+
+// ---------- review ----------
+// Tapping a word on the widget means "I want to see this again". The word comes back
+// after REVIEW_DAYS[step] days. Tap it again when it comes back and the wait gets longer.
+// Not tapped when it comes back: it leaves the review list.
+const DAY = 24 * 60 * 60 * 1000;
+function markTapped(w) {
+  if (progress.known[w.hanzi]) return;
+  const r = progress.review[w.hanzi];
+  let step = 0;
+  if (r) step = r.due === 0 ? Math.min(r.step + 1, REVIEW_DAYS.length - 1) : r.step;
+  progress.review[w.hanzi] = { step, due: Date.now() + REVIEW_DAYS[step] * DAY };
+  saveProgress();
+}
+// The word that has waited longest past its review time, or null. Also drops old
+// entries: words shown for review more than a day ago and not tapped.
+function dueReview(pack, now) {
+  let best = null;
+  for (const [h, r] of Object.entries(progress.review)) {
+    if (!r || progress.known[h] || (r.due === 0 && now - (r.shown || 0) > DAY)) { delete progress.review[h]; continue; }
+    if (r.due > 0 && r.due <= now && pack.byHanzi[h] && (!best || r.due < progress.review[best].due)) best = h;
+  }
+  if (!best) return null;
+  progress.review[best] = { step: progress.review[best].step, due: 0, shown: now };
+  saveProgress();
+  return pack.byHanzi[best];
 }
 
 // ---------- widget ----------
@@ -220,7 +249,7 @@ async function runWidget() {
   const now = Date.now();
   let w = pack.byHanzi[st.current];
   if (!w || !st.until || now >= st.until) {
-    w = nextFromDeck(st, pack);
+    w = dueReview(pack, now) || nextFromDeck(st, pack);
     st.current = w.hanzi;
     st.until = now + Math.max(0, WIDGET_MINUTES * 60 - 20) * 1000;
   }
@@ -408,7 +437,7 @@ async function runApp() {
     const levels = parseLevels(q.levels) || settings.levels;
     const pack = await loadWords(levels, false);
     const w = pack.byHanzi[q.word];
-    if (w) return showDetail(w, pack);
+    if (w) { markTapped(w); return showDetail(w, pack); }
   }
   while (true) {
     const pack = await loadWords(settings.levels, false);
