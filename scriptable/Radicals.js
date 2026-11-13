@@ -24,17 +24,22 @@ const GREY = new Color("#6B5E50");
 
 const fm = FileManager.iCloud();
 const listPath = fm.joinPath(fm.documentsDirectory(), LIST_FILE);
-if (!fm.fileExists(listPath)) { // first run: get the list from GitHub
+const goodList = t => typeof t === "string" && t.includes("|");
+// Read the saved list. Right after Install, iCloud may still be syncing the file
+// and reading it gives nothing, so this never throws.
+async function readList() {
+  if (!fm.fileExists(listPath)) return null;
+  try { await fm.downloadFileFromiCloud(listPath); return fm.readString(listPath); } catch (e) { return null; }
+}
+let listText = await readList();
+if (!goodList(listText)) { // first run, or the file could not be read: get the list from GitHub
   try {
     const r = new Request("https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/scriptable/" + LIST_FILE);
     const t = await r.loadString();
-    if (t && t.includes("|")) fm.writeString(listPath, t);
+    if (goodList(t)) { listText = t; try { fm.writeString(listPath, t); } catch (e) {} }
   } catch (e) {}
 }
-if (!fm.fileExists(listPath)) {
-  throw new Error("Missing " + LIST_FILE + " in iCloud Drive > Scriptable. Connect to the internet and run Radicals again.");
-}
-await fm.downloadFileFromiCloud(listPath);
+if (!goodList(listText)) listText = "";
 
 // "河 hé river" -> { char: "河", pinyin: "hé", meaning: "river" }
 function parseExample(s) {
@@ -46,7 +51,7 @@ function parseExample(s) {
 const baseName = n => n.replace(/\s*\(.*?\)/g, "").trim().toLowerCase();
 const meaningOf = (name, meaning) => (meaning.trim().toLowerCase() === baseName(name) ? "" : meaning);
 
-const ITEMS = fm.readString(listPath)
+const ITEMS = listText
   .split(/\r?\n/)
   .map(l => l.trim())
   .filter(l => l && !l.startsWith("#"))
@@ -58,7 +63,6 @@ const ITEMS = fm.readString(listPath)
     meaning: meaningOf(p[2] || "", p[3] || ""),
     examples: (p[4] || "").split(";").map(parseExample).filter(e => e.char).slice(0, 3),
   }));
-if (ITEMS.length === 0) throw new Error(LIST_FILE + " is empty");
 
 // Pick the radical from the clock: the same time slot gives the same radical
 // in every widget. Each cycle of slots is a fresh shuffle of the whole list.
@@ -83,7 +87,7 @@ function shuffledOrder(cycle) {
 const now = new Date();
 const slotMs = MINUTES * 60 * 1000;
 const slot = Math.floor(now.getTime() / slotMs);
-const item = ITEMS[shuffledOrder(Math.floor(slot / ITEMS.length))[slot % ITEMS.length]];
+const item = ITEMS.length === 0 ? null : ITEMS[shuffledOrder(Math.floor(slot / ITEMS.length))[slot % ITEMS.length]];
 const nextChange = new Date((slot + 1) * slotMs);
 
 function addLine(stack, text, font, color, lines, scale) {
@@ -326,7 +330,25 @@ async function showDetail(start) {
   await busy;
 }
 
-if (config.runsInWidget || config.runsInAccessoryWidget) {
+const NO_LIST = "Could not read the radicals list. Open Scriptable and run Radicals once with internet.";
+if (!item) {
+  // No list yet (no internet, or iCloud still syncing): a short note instead of an error.
+  if (config.runsInWidget || config.runsInAccessoryWidget) {
+    const lw = new ListWidget();
+    lw.backgroundColor = BG;
+    const t = lw.addText(NO_LIST);
+    t.font = Font.systemFont(13);
+    t.textColor = INK;
+    lw.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000);
+    Script.setWidget(lw);
+  } else {
+    const al = new Alert();
+    al.title = "Radicals";
+    al.message = NO_LIST;
+    al.addAction("OK");
+    await al.present();
+  }
+} else if (config.runsInWidget || config.runsInAccessoryWidget) {
   Script.setWidget(buildWidget(item, config.widgetFamily));
 } else {
   // Run in the app or tapped from the widget: open the detail page.

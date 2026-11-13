@@ -19,7 +19,7 @@ function makeEnv(family, inWidget, nowMs, opts = {}) {
   const env = {
     FileManager: { iCloud: () => ({
       documentsDirectory: () => docs, joinPath: (a, b) => a + "/" + b,
-      fileExists: p => fs.existsSync(p), downloadFileFromiCloud: async () => {}, readString: p => fs.readFileSync(p, "utf8"),
+      fileExists: p => fs.existsSync(p), downloadFileFromiCloud: async () => {}, readString: p => (opts.unreadable ? null : fs.readFileSync(p, "utf8")),
       writeString: (p, t) => fs.writeFileSync(p, t),
     }) },
     Color: class { constructor(h) { this.h = h; } },
@@ -29,7 +29,7 @@ function makeEnv(family, inWidget, nowMs, opts = {}) {
     config: { runsInWidget: inWidget, runsInAccessoryWidget: false, widgetFamily: family },
     Script: { name: () => "Radicals", setWidget: w => { env.widget = w; }, complete() {} },
     args: { queryParameters: opts.query || {} },
-    Request: class { constructor(u) { this.url = u; } async loadString() { throw new Error("offline"); } },
+    Request: class { constructor(u) { this.url = u; } async loadString() { if (opts.online) return fs.readFileSync(DIR + "/radicals.txt", "utf8"); throw new Error("offline"); } },
     WebView: class {
       async loadHTML(h) { html.push(h); }
       async present() { for (const a of opts.web || []) { env.allowed.push(this.shouldAllowRequest({ url: "hanzi://" + a })); await new Promise(r => setTimeout(r, 5)); } }
@@ -99,4 +99,17 @@ const empty = fs.mkdtempSync(path.join(os.tmpdir(), "rad-"));
 fs.copyFileSync(DIR + "/radicals.txt", empty + "/radicals.txt");
 const off = await run(null, false, t, { dir: empty });
 check("without HSK lists and offline the page still opens", off.html.length === 1 && off.html[0].includes("Run Hourly Words once"));
+// iCloud has the file but reading it gives null (still syncing right after Install)
+const sync = await run("medium", true, t, { unreadable: true, online: true, dir: empty });
+check("unreadable list: widget gets the list from GitHub and shows a radical", sync.widget && sync.texts.length > 3 && !sync.texts.join(" ").includes("Could not read"));
+const syncOff = await run("medium", true, t, { unreadable: true, dir: empty });
+check("unreadable list and offline: widget shows a short note, no error", syncOff.widget && syncOff.texts.join(" ").includes("Open Scriptable and run Radicals once"));
+const none = fs.mkdtempSync(path.join(os.tmpdir(), "rad-"));
+const noneOff = await run("medium", true, t, { dir: none });
+check("no list and offline: widget shows a short note, no error", noneOff.widget && noneOff.texts.join(" ").includes("Open Scriptable and run Radicals once"));
+let alertMsg = "";
+const noneApp = makeEnv(null, false, t, { dir: none });
+noneApp.Alert = class { addAction() {} async present() { alertMsg = this.message; } };
+{ const names = Object.keys(noneApp).filter(k => !["texts", "widget", "html", "allowed"].includes(k)); await new AsyncFunction(...names, src)(...names.map(n => noneApp[n])); }
+check("no list and offline in the app: a short message, no error", alertMsg.includes("run Radicals once"));
 process.exit(fails ? 1 : 0);
