@@ -43,6 +43,11 @@ async function run(file, opts) {
     async loadString() {
       out.requests++;
       if (opts.offline) throw new Error("offline");
+      if (this.url.startsWith("https://cdn.jsdelivr.net/")) { // fake Hanzi Writer library and stroke data
+        this.response = { statusCode: 200 };
+        if (this.url.includes("hanzi-writer.min.js")) return "window.HanziWriter = {}; // HanziWriter";
+        return JSON.stringify({ strokes: ["M 0 0 L 9 9"], medians: [[[0, 0], [9, 9]]], src: decodeURIComponent(this.url.split("/").pop()) });
+      }
       const rel = decodeURIComponent(this.url.replace(REPO, ""));
       const p = path.join(ROOT, rel);
       if (!this.url.startsWith(REPO) || !fs.existsSync(p)) { this.response = { statusCode: 404 }; return "404: Not Found"; }
@@ -66,7 +71,7 @@ async function run(file, opts) {
       documentsDirectory: () => opts.dir, joinPath: (a, b) => path.join(a, b),
       fileExists: p => fs.existsSync(p), downloadFileFromiCloud: async () => {},
       readString: p => fs.readFileSync(p, "utf8"), writeString: (p, s) => fs.writeFileSync(p, s),
-      modificationDate: p => fs.statSync(p).mtime,
+      modificationDate: p => fs.statSync(p).mtime, createDirectory: p => fs.mkdirSync(p, { recursive: true }),
     }) },
     Font: { systemFont: s => s, boldSystemFont: s => s, semiboldSystemFont: s => s, mediumSystemFont: s => s },
     Color: class {}, Size: class {}, ListWidget, Alert, Request, WebView,
@@ -96,8 +101,8 @@ for (const lv of ["hsk1-2", "hsk3", "hsk4", "hsk5"]) {
 // ---------- Install ----------
 let dir = newDir();
 let o = await run("Install.js", { dir, alerts: [0, 0] });
-check("Install downloads 4 files and the HSK1-2 list",
-  ["Hourly Words.js", "Radicals.js", "Add Word.js", "radicals.txt", "hsk1-2.json"].every(f => fs.existsSync(path.join(dir, f))));
+check("Install downloads 5 files and the HSK1-2 list",
+  ["Hourly Words.js", "Radicals.js", "Add Word.js", "Write.js", "radicals.txt", "hsk1-2.json"].every(f => fs.existsSync(path.join(dir, f))));
 check("Install reports success", o.alerts[1].title === "Installed");
 o = await run("Install.js", { dir: newDir(), alerts: [0, 0], offline: true });
 check("Install offline reports failure", o.alerts[1].title === "Some files failed");
@@ -239,6 +244,42 @@ o = await run("Hourly Words.js", { dir, alerts: ["Progress", 0, -1] });
 check("Progress lists every level", /HSK 4: seen 1 of \d+/.test(o.alerts[1].message) && o.alerts[1].message.includes("HSK 5: not downloaded"));
 o = await run("Hourly Words.js", { dir, alerts: ["Show a word", -1] });
 check("Show a word opens a detail page", o.html.length === 1);
+
+// ---------- Write ----------
+dir = newDir();
+fs.copyFileSync(path.join(ROOT, "data", "hsk1-2.json"), path.join(dir, "hsk1-2.json"));
+fs.writeFileSync(path.join(dir, "hanzi-settings.json"), JSON.stringify({ levels: ["hsk1-2"] }));
+fs.writeFileSync(path.join(dir, "hanzi-progress.json"), JSON.stringify({ known: { "我": 1 }, seen: {}, review: { "你": { step: 0, due: 1 } } }));
+const shared = ["hsk1-2.json", "hanzi-settings.json", "hanzi-progress.json"].map(f => fs.readFileSync(path.join(dir, f), "utf8"));
+o = await run("Write.js", { dir, query: { word: "谢谢" }, web: ["done:谢谢", "next", "speak:谢谢"] });
+let wp = o.html[0];
+check("Write opens a page for the word", o.html.length >= 1 && wp.includes("xièxie") && wp.includes("to thank"));
+check("Write page has the library and stroke data inside", wp.includes("// HanziWriter") && wp.includes('"src":"谢.json"') && wp.includes('CHARS = ["谢","谢"]'));
+check("Write page has the grid, Hint, Show strokes and Play", wp.includes('class="grid"') && wp.includes(">Hint<") && wp.includes(">Show strokes<") && wp.includes("say("));
+check("Write page has 3 rounds and round 3 hides the character", wp.includes("ROUNDS = 3") && wp.includes("round < ROUNDS ? c") === false && wp.includes('(show ? c : "?")'));
+check("Write saves a written word in hanzi-write.json", read(dir, "hanzi-write.json").done["谢谢"] === 1);
+check("Next word loads another word", o.html.length === 2 && !o.html[1].includes("xièxie"));
+check("Write Play falls back to Speech.speak", o.speak[0] === "谢谢");
+check("page actions are caught and the page stays open", o.allowed.every(a => a === false));
+check("Write saves stroke data in the hanzi-write folder", fs.existsSync(path.join(dir, "hanzi-write", "hanzi-writer.min.js")) && fs.existsSync(path.join(dir, "hanzi-write", "c8c22.json")));
+check("Write does not change shared files", ["hsk1-2.json", "hanzi-settings.json", "hanzi-progress.json"].every((f, i) => fs.readFileSync(path.join(dir, f), "utf8") === shared[i]));
+check("Write does not add files that show up as scripts", fs.readdirSync(dir).filter(f => f.endsWith(".js")).length === 0);
+o = await run("Write.js", { dir, query: { word: "谢谢" }, offline: true });
+check("a word written before works offline", o.html.length === 1 && o.html[0].includes('"src":"谢.json"'));
+o = await run("Write.js", { dir, query: { word: "学生" }, offline: true });
+check("a new word offline says it needs internet", o.html.length === 1 && o.html[0].includes("needs internet") && o.html[0].includes('id="hint" disabled'));
+o = await run("Write.js", { dir: (() => { const d = newDir(); fs.copyFileSync(path.join(ROOT, "data", "hsk1-2.json"), path.join(d, "hsk1-2.json")); return d; })(), offline: true });
+check("first run offline: a clear message, no error", o.alerts.length === 1 && o.alerts[0].message.includes("needs the internet"));
+o = await run("Write.js", { dir: newDir(), offline: true });
+check("no word lists: a clear message", o.alerts.length === 1 && o.alerts[0].message.includes("run Hourly Words once"));
+const allWords = JSON.parse(fs.readFileSync(path.join(dir, "hsk1-2.json"), "utf8")).words.map(w => w.hanzi);
+const left = allWords[17];
+fs.writeFileSync(path.join(dir, "hanzi-write.json"), JSON.stringify({ done: Object.fromEntries(allWords.filter(h => h !== left).map(h => [h, 1])), deck: [] }));
+o = await run("Write.js", { dir });
+check("words not written yet come first", o.html[0].includes("CHARS = " + JSON.stringify(Array.from(left).filter(c => /\p{Script=Han}/u.test(c)))));
+fs.writeFileSync(path.join(dir, "mywords.txt"), "螺蛳粉 | luósīfěn | river snail rice noodles\n");
+o = await run("Write.js", { dir, query: { word: "螺蛳粉" } });
+check("Write also has my own words", o.html[0].includes("luósīfěn") && o.html[0].includes("My words"));
 
 // ---------- Add Word ----------
 dir = newDir();

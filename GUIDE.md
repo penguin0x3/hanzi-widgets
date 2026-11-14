@@ -18,7 +18,7 @@ Get **Scriptable** (free) from the App Store and open it once.
 2. In Scriptable, tap **+** (top right), paste the code, and tap the title at the top to rename it to `Install`.
 3. Tap **Done**, then tap `Install` to run it, then tap **Install**.
 
-You now have 3 scripts: `Hourly Words`, `Radicals` and `Add Word`. Run `Install` again any time to get the newest version. Your settings and words are kept.
+You now have 4 scripts: `Hourly Words`, `Radicals`, `Add Word` and `Write`. Run `Install` again any time to get the newest version. Your settings and words are kept.
 
 ## Step 3. Choose your levels
 
@@ -43,6 +43,17 @@ A word you tap on the Lock Screen comes back the next day for a quick review. Ta
 3. Press and hold the widget, tap **Edit Widget**. Under **Script**, choose `Radicals`.
 
 Tap the widget to open the radical page: each example character with a common word, an example sentence and **Play**. Tap **Next radical** to see another one.
+
+## Practice writing characters
+
+Run `Write` in Scriptable. It shows a word from your levels with its pinyin and meaning.
+
+1. **Rounds 1 and 2:** trace each stroke over the faint character, in the right order.
+2. **Round 3:** write the character from memory on the empty grid.
+
+A wrong stroke turns red. After 3 misses, the right stroke is shown. **Hint** shows the faint character again, **Show strokes** plays the stroke order, **Next word** skips to another word. Words you have not written yet come first.
+
+Write needs internet the first time it shows a character. After that, the characters you wrote also work offline. It does not change your widgets, settings or progress.
 
 ## Add your own words
 

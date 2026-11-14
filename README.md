@@ -6,6 +6,7 @@ Learn Chinese without opening an app. New words and radicals show up on your iPh
 - **Levels:** HSK 1-2, HSK 3, HSK 4, HSK 5. Lists download by themselves from this repo and work offline after that.
 - **Add Word:** share a Chinese word from any app to add it to your own list. Pinyin and meaning are filled in.
 - **Radicals** (iPhone Home Screen): one of 50 common radicals, with 3 example characters. Tap it for a word and an example sentence with sound for each character.
+- **Write** (iPhone, in Scriptable): practice writing characters with your finger. Trace each character twice, then write it from memory. Wrong strokes turn red. It only reads the word lists, so the widgets are not changed.
 - **MacHanzi** (Mac, optional): the same words in the menu bar, plus a word card and a radical card on the desktop.
 
 Setup guide: [GUIDE.md](GUIDE.md)
@@ -14,7 +15,7 @@ Setup guide: [GUIDE.md](GUIDE.md)
 
 | Folder | Files |
 |---|---|
-| `scriptable/` | `Install.js` (start here), `Hourly Words.js`, `Add Word.js`, `Radicals.js`, `radicals.txt` |
+| `scriptable/` | `Install.js` (start here), `Hourly Words.js`, `Add Word.js`, `Radicals.js`, `Write.js`, `radicals.txt` |
 | `data/` | `hsk1-2.json`, `hsk3.json`, `hsk4.json`, `hsk5.json` (word lists), `dict.txt` (dictionary for Add Word) |
 | `mac/` | `main.swift`, `Info.plist`, `build.sh` (MacHanzi source) |
 | `tools/` | `build_data.py` (makes the files in `data/` from the sources below) |
@@ -41,6 +42,7 @@ MacHanzi downloads the word lists from this repo. Choose levels in the menu: **L
 - **Pinyin and meanings:** [CC-CEDICT](https://www.mdbg.net/chinese/dictionary?page=cc-cedict), licensed CC BY-SA 4.0.
 - **Example sentences:** [Tatoeba](https://tatoeba.org), licensed CC BY 2.0 FR. Each example keeps its Tatoeba sentence id in `src`.
 - **Sound:** Play uses the Chinese voice built into iPhone.
+- **Writing:** [Hanzi Writer](https://hanziwriter.org) (MIT), with stroke data from [Make Me a Hanzi](https://github.com/skishore/makemeahanzi) (Arphic Public License). Write downloads them the first time and saves them in iCloud Drive > Scriptable > hanzi-write.
 
 To rebuild the data: download the sources listed at the top of `tools/build_data.py`, then run `python3 tools/build_data.py <sources> <my list> data`.
 
