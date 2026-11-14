@@ -274,7 +274,7 @@ function start() {
   writer.quiz({
     showHintAfterMisses: 3,
     onMistake: function () { note("Not this stroke. Try again.", "bad"); },
-    onCorrectStroke: function (d) { note(d.strokesRemaining ? d.strokesRemaining + " strokes left" : ""); },
+    onCorrectStroke: function (d) { note(d.strokesRemaining ? d.strokesRemaining + (d.strokesRemaining === 1 ? " stroke left" : " strokes left") : ""); },
     onComplete: function () {
       note("Good!", "good");
       setTimeout(function () {
