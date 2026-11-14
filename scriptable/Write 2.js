@@ -277,7 +277,7 @@ function build() {
     return HanziWriter.create("t" + i, c, {
       width: size, height: size, padding: Math.round(size * 0.06),
       showCharacter: finished || i < ci, showOutline: round < ROUNDS && !finished,
-      strokeColor: css("--ink"), outlineColor: css("--line"), highlightColor: css("--red"), drawingColor: css("--ink"),
+      strokeColor: css("--ink"), outlineColor: css("--line"), highlightColor: css("--ok"), drawingColor: css("--ink"),
       drawingWidth: Math.max(10, Math.round(size * 0.065)), strokeAnimationSpeed: 1.2, delayBetweenStrokes: 200,
       charDataLoader: function (ch, onLoad, onError) { if (DATA[ch]) onLoad(DATA[ch]); else onError(); }
     });
