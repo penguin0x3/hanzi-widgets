@@ -1,38 +1,115 @@
 # Write path: the order of the Write script. One item per line: hanzi | pinyin | meaning
+# Add "| radical" at the end of a line to mark a radical. Write shows a "Radical" tag on it.
+# Rule: each radical is followed by 3 simple characters that have this radical.
 # Lines starting with # are skipped. Change the order or add lines here.
 
-# Part 1: radicals
-人 | rén | Person
-亻 | rén | Standing person (side of 你, 他, 们)
-口 | kǒu | Mouth
-女 | nǚ | Woman
-子 | zǐ | Child
-大 | dà | Big
-力 | lì | Power
-又 | yòu | Again, right hand
-土 | tǔ | Earth
-日 | rì | Sun, day
-月 | yuè | Moon
-木 | mù | Tree
-心 | xīn | Heart
-忄 | xīn | Heart (side)
-氵 | shuǐ | Water (3 dots)
-讠 | yán | Speech (side)
-扌 | shǒu | Hand (side)
-门 | mén | Door
-宀 | mián | Roof
-艹 | cǎo | Grass (top)
+# Part 1: 20 radicals, each followed by 3 characters with it
+人 | rén | Person | radical
+个 | gè | (measure word, 一个 one)
+从 | cóng | from
+今 | jīn | now (今天 today)
 
-# Part 2: simple words (人 and 大 are already in part 1)
+亻 | rén | Standing person | radical
+你 | nǐ | you
+他 | tā | he
+们 | men | plural (我们 we, 你们 you all)
+
+口 | kǒu | Mouth | radical
+吃 | chī | to eat
+喝 | hē | to drink
+吗 | ma | (question word)
+
+女 | nǚ | Woman | radical
+她 | tā | she
+好 | hǎo | good
+妈 | mā | mom
+
+子 | zǐ | Child | radical
+字 | zì | character, word
+学 | xué | to learn
+孩 | hái | child (孩子)
+
+大 | dà | Big | radical
+天 | tiān | sky, day
+太 | tài | too (太好了 great)
+美 | měi | beautiful
+
+力 | lì | Power | radical
+男 | nán | man, male
+办 | bàn | to do, to handle
+动 | dòng | to move
+
+又 | yòu | Again, right hand | radical
+友 | yǒu | friend
+对 | duì | right, correct
+双 | shuāng | pair
+
+土 | tǔ | Earth | radical
+在 | zài | at, in
+地 | dì | ground
+坐 | zuò | to sit
+
+日 | rì | Sun, day | radical
+明 | míng | bright (明天 tomorrow)
+早 | zǎo | early, morning
+是 | shì | to be
+
+月 | yuè | Moon | radical
+有 | yǒu | to have
+朋 | péng | friend (朋友)
+脸 | liǎn | face
+
+木 | mù | Tree | radical
+本 | běn | book (measure word), root
+林 | lín | woods
+果 | guǒ | fruit
+
+心 | xīn | Heart | radical
+想 | xiǎng | to want, to think
+您 | nín | you (polite)
+忘 | wàng | to forget
+
+忄 | xīn | Heart (side) | radical
+忙 | máng | busy
+快 | kuài | fast
+怕 | pà | to be afraid
+
+氵 | shuǐ | Water (3 dots) | radical
+没 | méi | not (没有 not have)
+汉 | hàn | Chinese (汉字 Chinese character)
+洗 | xǐ | to wash
+
+讠 | yán | Speech (side) | radical
+说 | shuō | to speak
+谁 | shéi | who
+话 | huà | words, speech
+
+扌 | shǒu | Hand (side) | radical
+打 | dǎ | to hit
+找 | zhǎo | to look for
+接 | jiē | to pick up, to answer
+
+门 | mén | Door | radical
+问 | wèn | to ask
+间 | jiān | room, between
+闭 | bì | to close
+
+宀 | mián | Roof | radical
+家 | jiā | home, family
+安 | ān | safe, calm
+客 | kè | guest
+
+艹 | cǎo | Grass (top) | radical
+茶 | chá | tea
+草 | cǎo | grass
+菜 | cài | dish, vegetable
+
+# Part 2: simple words (single characters from part 1 are not repeated)
 一 | yī | one
 二 | èr | two
 三 | sān | three
 十 | shí | ten
 我 | wǒ | I, me
-你 | nǐ | you
-他 | tā | he
-她 | tā | she
-们 | men | plural (我们 we, 你们 you all)
 你好 | nǐ hǎo | hello
 谢谢 | xièxie | thank you
 再见 | zàijiàn | goodbye
@@ -40,33 +117,23 @@
 没关系 | méi guānxi | it's OK, no problem
 小 | xiǎo | small
 中 | zhōng | middle
-好 | hǎo | good
-是 | shì | to be
 不 | bù | no, not
-有 | yǒu | to have
 没有 | méiyǒu | not have
 很 | hěn | very
 也 | yě | also
-吗 | ma | (question word)
 的 | de | (of, 's)
 了 | le | (done, changed)
-在 | zài | at, in
 爸爸 | bàba | dad
 妈妈 | māma | mom
-家 | jiā | home, family
-吃 | chī | to eat
-喝 | hē | to drink
 去 | qù | to go
 来 | lái | to come
 看 | kàn | to look, to watch
-说 | shuō | to speak
-想 | xiǎng | to want, to think
 喜欢 | xǐhuan | to like
 水 | shuǐ | water
-茶 | chá | tea
 米饭 | mǐfàn | cooked rice
 今天 | jīntiān | today
 明天 | míngtiān | tomorrow
+朋友 | péngyou | friend
 中国 | Zhōngguó | China
 学生 | xuésheng | student
 老师 | lǎoshī | teacher

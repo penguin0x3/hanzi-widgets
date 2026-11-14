@@ -46,7 +46,7 @@ Tap the widget to open the radical page: each example character with a common wo
 
 ## Practice writing characters
 
-Run `Write` in Scriptable. It starts with 20 radicals, then about 45 of the simplest words (我, 你, 谢谢, 没有...), always in the same order. It remembers where you stopped. `Write 2` works the same way but picks random words from your HSK levels.
+Run `Write` in Scriptable. It starts with 20 radicals. Each radical has a **Radical** tag at the top and is followed by 3 simple characters with that radical (for example 亻, then 你, 他, 们). Then come about 30 of the simplest words (我, 你好, 谢谢, 没有...), always in the same order. It remembers where you stopped. `Write 2` works the same way but picks random words from your HSK levels.
 
 1. **Rounds 1 and 2:** trace each stroke over the faint characters, in the right order.
 2. **Round 3:** write the word from memory on the empty grid.

@@ -3,8 +3,9 @@
 // icon-color: deep-brown; icon-glyph: pen-nib;
 
 // Write: practice writing Chinese characters with your finger.
-// - MODE "path" (Write): radicals first, then the simplest words, in the order of
-//   write-path.txt on GitHub. It remembers where you stopped.
+// - MODE "path" (Write): 20 radicals, each followed by 3 characters with that radical,
+//   then the simplest words, in the order of write-path.txt on GitHub. Radicals get a
+//   "Radical" tag. It remembers where you stopped, even if the list order changes.
 // - MODE "random" (Write 2): words from your HSK levels, words not written yet first.
 // - Each word: 3 rounds per character. Rounds 1-2: trace over a faint character.
 //   Round 3: write it from memory on an empty grid.
@@ -94,7 +95,10 @@ async function loadPath() {
     if (!line || line.startsWith("#")) continue;
     const p = line.split(/\s*\|\s*/);
     if (!p[0] || !hanOnly(p[0]).length || byHanzi[p[0]]) continue;
-    byHanzi[p[0]] = { hanzi: p[0], pinyin: p[1] || "", short: p.slice(2).join(" | "), level: "path" };
+    // "| radical" at the end marks a radical: Write shows a "Radical" tag on it.
+    const radical = p.length > 3 && p[p.length - 1].toLowerCase() === "radical";
+    if (radical) p.pop();
+    byHanzi[p[0]] = { hanzi: p[0], pinyin: p[1] || "", short: p.slice(2).join(" | "), level: "path", radical };
     words.push(byHanzi[p[0]]);
   }
   return { words, byHanzi };
@@ -374,7 +378,10 @@ const levelName = levels.map(l => LEVEL_NAMES[l]).join(", ");
 const st = await readJSON(WRITE, {});
 st.done = st.done || {};
 st.deck = Array.isArray(st.deck) ? st.deck : [];
-const saveState = () => save(WRITE, JSON.stringify(st));
+const saveState = () => {
+  if (MODE === "path" && pack.words[st.pos]) st.at = pack.words[st.pos].hanzi;
+  save(WRITE, JSON.stringify(st));
+};
 
 const pack = MODE === "path" ? await loadPath() : await loadWords(levels);
 // Opened with ?word=... (the Write button in Hourly Words or Radicals): practise
@@ -394,12 +401,15 @@ if (!pack.words.length && !single) {
   async function pageFor(w) {
     const strokes = {};
     for (const c of hanOnly(w.hanzi)) { const d = await getStrokes(c); if (d) strokes[c] = d; }
-    return pageHTML(w, lib, strokes, MODE === "path" || w.level === "one" ? "" : w.level === "mine" ? LEVEL_NAMES.mine : levelName);
+    const tag = w.radical ? "Radical" : MODE === "path" || w.level === "one" ? "" : w.level === "mine" ? LEVEL_NAMES.mine : levelName;
+    return pageHTML(w, lib, strokes, tag);
   }
   // Path: st.pos is the item to show next time. Finishing a word moves it on,
   // so closing Write after a word starts at the next one.
   const n = pack.words.length || 1;
   st.pos = Number.isInteger(st.pos) ? ((st.pos % n) + n) % n : 0;
+  // st.at is the item at st.pos. If the list on GitHub changes order, find it again.
+  if (MODE === "path" && st.at && pack.byHanzi[st.at] && pack.words[st.pos].hanzi !== st.at) st.pos = pack.words.indexOf(pack.byHanzi[st.at]);
   let cur = st.pos;
   const pick = () => MODE === "path" ? pack.words[cur] : nextWord(st, pack);
   let w = single || pick();
