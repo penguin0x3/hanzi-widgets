@@ -42,7 +42,7 @@ MacHanzi downloads the word lists from this repo. Choose levels in the menu: **L
 - **Pinyin and meanings:** [CC-CEDICT](https://www.mdbg.net/chinese/dictionary?page=cc-cedict), licensed CC BY-SA 4.0.
 - **Example sentences:** [Tatoeba](https://tatoeba.org), licensed CC BY 2.0 FR. Each example keeps its Tatoeba sentence id in `src`.
 - **Sound:** Listen uses the Chinese voice built into iPhone.
-- **Colours:** green (#108652, #97DF67), white and black, with a dark mode.
+- **Colours:** green (#108652, #97DF67) on a light mint background (#EEF7E8), with a dark moss green dark mode (#0E1F16).
 - **Writing:** [Hanzi Writer](https://hanziwriter.org) (MIT), with stroke data from [Make Me a Hanzi](https://github.com/skishore/makemeahanzi) (Arphic Public License). Write downloads them the first time and saves them in iCloud Drive > Scriptable > hanzi-write.
 
 To rebuild the data: download the sources listed at the top of `tools/build_data.py`, then run `python3 tools/build_data.py <sources> <my list> data`.

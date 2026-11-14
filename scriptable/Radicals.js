@@ -17,7 +17,7 @@ const LIST_FILE = "radicals.txt";
 const MINUTES = 10; // a new radical every 10 minutes (iOS decides the real refresh time)
 
 // Colors: "paper and ink", same as the Mac desktop card
-const BG = Color.dynamic(new Color("#F4F5F2"), new Color("#000000"));
+const BG = Color.dynamic(new Color("#EEF7E8"), new Color("#0E1F16"));
 const INK = Color.dynamic(new Color("#000000"), new Color("#FFFFFF"));
 const RED = Color.dynamic(new Color("#108652"), new Color("#97DF67")); // accent (pinyin)
 const GREY = Color.dynamic(new Color("#5F665F"), new Color("#9DA39D"));
@@ -251,8 +251,8 @@ ${f.example ? `<div class="ex"><div class="zh">${esc(f.example.zh)}</div>
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
-:root { --bg:#F4F5F2; --ink:#000000; --accent:#108652; --grey:#5F665F; --line:#DCE0DA; --card:#FFFFFF; --soft:#97DF67; --on:#FFFFFF; --bad:#C0392B; --ok:#108652; }
-@media (prefers-color-scheme: dark) { :root { --bg:#000000; --ink:#FFFFFF; --accent:#97DF67; --grey:#9DA39D; --line:#343B34; --card:#121512; --soft:#108652; --on:#000000; --bad:#FF7A6B; --ok:#97DF67; } }
+:root { --bg:#EEF7E8; --ink:#000000; --accent:#108652; --grey:#5F665F; --line:#D3E4CA; --card:#FFFFFF; --soft:#97DF67; --on:#FFFFFF; --bad:#C0392B; --ok:#108652; }
+@media (prefers-color-scheme: dark) { :root { --bg:#0E1F16; --ink:#FFFFFF; --accent:#97DF67; --grey:#9DA39D; --line:#2F4A39; --card:#16291E; --soft:#108652; --on:#000000; --bad:#FF7A6B; --ok:#97DF67; } }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { margin:0; padding:24px 20px 120px; background:var(--bg); color:var(--ink);
   font: 17px/1.45 -apple-system, "PingFang SC", sans-serif; }
