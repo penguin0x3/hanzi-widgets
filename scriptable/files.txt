@@ -1,0 +1,8 @@
+# Files that Install downloads into Scriptable, one per line.
+# Add a new script here and every Install picks it up.
+Hourly Words.js
+Radicals.js
+Add Word.js
+Write.js
+radicals.txt
+Install.js

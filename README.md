@@ -15,7 +15,7 @@ Setup guide: [GUIDE.md](GUIDE.md)
 
 | Folder | Files |
 |---|---|
-| `scriptable/` | `Install.js` (start here), `Hourly Words.js`, `Add Word.js`, `Radicals.js`, `Write.js`, `radicals.txt` |
+| `scriptable/` | `Install.js` (start here), `Hourly Words.js`, `Add Word.js`, `Radicals.js`, `Write.js`, `radicals.txt`, `files.txt` (the list Install downloads) |
 | `data/` | `hsk1-2.json`, `hsk3.json`, `hsk4.json`, `hsk5.json` (word lists), `dict.txt` (dictionary for Add Word) |
 | `mac/` | `main.swift`, `Info.plist`, `build.sh` (MacHanzi source) |
 | `tools/` | `build_data.py` (makes the files in `data/` from the sources below) |

@@ -104,6 +104,9 @@ let o = await run("Install.js", { dir, alerts: [0, 0] });
 check("Install downloads 5 files and the HSK1-2 list",
   ["Hourly Words.js", "Radicals.js", "Add Word.js", "Write.js", "radicals.txt", "hsk1-2.json"].every(f => fs.existsSync(path.join(dir, f))));
 check("Install reports success", o.alerts[1].title === "Installed");
+check("Install updates itself", fs.readFileSync(path.join(dir, "Install.js"), "utf8") === fs.readFileSync(path.join(ROOT, "scriptable", "Install.js"), "utf8"));
+check("Install takes the file list from files.txt", fs.readFileSync(path.join(ROOT, "scriptable", "files.txt"), "utf8").split("\n").filter(l => l && !l.startsWith("#")).every(f => fs.existsSync(path.join(dir, f))));
+check("Install does not list itself in the first message", !o.alerts[0].message.includes("Install.js"));
 o = await run("Install.js", { dir: newDir(), alerts: [0, 0], offline: true });
 check("Install offline reports failure", o.alerts[1].title === "Some files failed");
 

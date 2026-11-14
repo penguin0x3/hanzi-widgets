@@ -18,7 +18,7 @@ Get **Scriptable** (free) from the App Store and open it once.
 2. In Scriptable, tap **+** (top right), paste the code, and tap the title at the top to rename it to `Install`.
 3. Tap **Done**, then tap `Install` to run it, then tap **Install**.
 
-You now have 4 scripts: `Hourly Words`, `Radicals`, `Add Word` and `Write`. Run `Install` again any time to get the newest version. Your settings and words are kept.
+You now have 4 scripts: `Hourly Words`, `Radicals`, `Add Word` and `Write`. Run `Install` again any time to get the newest version. It also updates itself and adds new scripts when there are any. Your settings and words are kept.
 
 ## Step 3. Choose your levels
 
