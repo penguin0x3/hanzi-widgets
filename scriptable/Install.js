@@ -2,14 +2,14 @@
 // These must be at the very top of the file. Do not edit.
 // icon-color: blue; icon-glyph: download;
 
-// Install: downloads Hourly Words, Radicals, Add Word and Write from GitHub into Scriptable.
+// Install: downloads Hourly Words, Radicals, Add Word, Write and Write 2 from GitHub into Scriptable.
 // Run it again any time to update the scripts. Your settings, progress and
 // mywords.txt are not touched.
 // The file list comes from scriptable/files.txt on GitHub, so new scripts show up
 // by themselves. Install also updates itself.
 
 const REPO = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/";
-const FALLBACK = ["Hourly Words.js", "Radicals.js", "Add Word.js", "Write.js", "radicals.txt", "Install.js"];
+const FALLBACK = ["Hourly Words.js", "Radicals.js", "Add Word.js", "Write.js", "Write 2.js", "radicals.txt", "Install.js"];
 const fm = FileManager.iCloud();
 const dir = fm.documentsDirectory();
 

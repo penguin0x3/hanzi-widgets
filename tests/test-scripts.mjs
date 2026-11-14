@@ -101,8 +101,8 @@ for (const lv of ["hsk1-2", "hsk3", "hsk4", "hsk5"]) {
 // ---------- Install ----------
 let dir = newDir();
 let o = await run("Install.js", { dir, alerts: [0, 0] });
-check("Install downloads 5 files and the HSK1-2 list",
-  ["Hourly Words.js", "Radicals.js", "Add Word.js", "Write.js", "radicals.txt", "hsk1-2.json"].every(f => fs.existsSync(path.join(dir, f))));
+check("Install downloads 6 files and the HSK1-2 list",
+  ["Hourly Words.js", "Radicals.js", "Add Word.js", "Write.js", "Write 2.js", "radicals.txt", "hsk1-2.json"].every(f => fs.existsSync(path.join(dir, f))));
 check("Install reports success", o.alerts[1].title === "Installed");
 check("Install updates itself", fs.readFileSync(path.join(dir, "Install.js"), "utf8") === fs.readFileSync(path.join(ROOT, "scriptable", "Install.js"), "utf8"));
 check("Install takes the file list from files.txt", fs.readFileSync(path.join(ROOT, "scriptable", "files.txt"), "utf8").split("\n").filter(l => l && !l.startsWith("#")).every(f => fs.existsSync(path.join(dir, f))));
@@ -248,13 +248,44 @@ check("Progress lists every level", /HSK 4: seen 1 of \d+/.test(o.alerts[1].mess
 o = await run("Hourly Words.js", { dir, alerts: ["Show a word", -1] });
 check("Show a word opens a detail page", o.html.length === 1);
 
-// ---------- Write ----------
+// ---------- Write (path: radicals, then simple words) ----------
+check("Write and Write 2 differ only in MODE", (() => {
+  const a = fs.readFileSync(path.join(ROOT, "scriptable", "Write.js"), "utf8").split("\n");
+  const b = fs.readFileSync(path.join(ROOT, "scriptable", "Write 2.js"), "utf8").split("\n");
+  const diff = a.map((l, i) => l === b[i] ? null : l + " / " + b[i]).filter(Boolean);
+  return a.length === b.length && diff.length === 1 && diff[0].includes('MODE = "path"') && diff[0].includes('MODE = "random"');
+})());
+const pathItems = fs.readFileSync(path.join(ROOT, "scriptable", "write-path.txt"), "utf8").split("\n").filter(l => l.trim() && !l.startsWith("#")).map(l => l.split("|")[0].trim());
+check("write-path.txt starts with 20 radicals, then 你好 and 谢谢 come early", pathItems.length > 60 && pathItems[0] === "人" && pathItems[19] === "艹" && pathItems.indexOf("谢谢") < 35);
+check("write-path.txt has no duplicates", new Set(pathItems).size === pathItems.length);
+dir = newDir();
+const firstChars = item => "CHARS = " + JSON.stringify(Array.from(item));
+o = await run("Write.js", { dir, web: ["next", "next"] });
+check("Write starts with the first radical 人", o.html[0].includes(firstChars("人")) && o.html[0].includes("Person"));
+check("Write path has no level tag at the top", !o.html[0].includes('class="lv"'));
+check("Next goes through the path in order", o.html[1].includes(firstChars(pathItems[1])) && o.html[2].includes(firstChars(pathItems[2])));
+check("Write remembers where you stopped", read(dir, "hanzi-write-path.json").pos === 2);
+o = await run("Write.js", { dir, web: ["done:" + pathItems[2]] });
+check("Write opens where you stopped", o.html[0].includes(firstChars(pathItems[2])));
+check("finishing an item moves to the next one", read(dir, "hanzi-write-path.json").pos === 3);
+o = await run("Write.js", { dir, web: ["done:" + pathItems[3], "next"] });
+check("Next after finishing does not skip an item", o.html[1].includes(firstChars(pathItems[4])) && read(dir, "hanzi-write-path.json").pos === 4);
+check("Write path keeps its own progress file", !fs.existsSync(path.join(dir, "hanzi-write.json")) && !fs.existsSync(path.join(dir, "hanzi-progress.json")));
+fs.writeFileSync(path.join(dir, "hanzi-write-path.json"), JSON.stringify({ done: {}, deck: [], pos: pathItems.length - 1 }));
+o = await run("Write.js", { dir, web: ["next"] });
+check("after the last item the path starts again", o.html[1].includes(firstChars(pathItems[0])));
+o = await run("Write.js", { dir, offline: true });
+check("Write path works offline with the saved list", o.html.length === 1 && o.html[0].includes("CHARS = "));
+o = await run("Write.js", { dir: newDir(), offline: true });
+check("Write path offline the first time: a clear message", o.alerts.length === 1 && o.alerts[0].message.includes("needs the internet"));
+
+// ---------- Write 2 (random words from your levels) ----------
 dir = newDir();
 fs.copyFileSync(path.join(ROOT, "data", "hsk1-2.json"), path.join(dir, "hsk1-2.json"));
 fs.writeFileSync(path.join(dir, "hanzi-settings.json"), JSON.stringify({ levels: ["hsk1-2"] }));
 fs.writeFileSync(path.join(dir, "hanzi-progress.json"), JSON.stringify({ known: { "我": 1 }, seen: {}, review: { "你": { step: 0, due: 1 } } }));
 const shared = ["hsk1-2.json", "hanzi-settings.json", "hanzi-progress.json"].map(f => fs.readFileSync(path.join(dir, f), "utf8"));
-o = await run("Write.js", { dir, query: { word: "谢谢" }, web: ["done:谢谢", "next", "speak:谢谢"] });
+o = await run("Write 2.js", { dir, query: { word: "谢谢" }, web: ["done:谢谢", "next", "speak:谢谢"] });
 let wp = o.html[0];
 check("Write opens a page for the word", o.html.length >= 1 && wp.includes("xièxie") && wp.includes("to thank"));
 check("Write page has the library and stroke data inside", wp.includes("// HanziWriter") && wp.includes('"src":"谢.json"') && wp.includes('CHARS = ["谢","谢"]'));
@@ -267,21 +298,21 @@ check("page actions are caught and the page stays open", o.allowed.every(a => a 
 check("Write saves stroke data in the hanzi-write folder", fs.existsSync(path.join(dir, "hanzi-write", "hanzi-writer.min.js")) && fs.existsSync(path.join(dir, "hanzi-write", "c8c22.json")));
 check("Write does not change shared files", ["hsk1-2.json", "hanzi-settings.json", "hanzi-progress.json"].every((f, i) => fs.readFileSync(path.join(dir, f), "utf8") === shared[i]));
 check("Write does not add files that show up as scripts", fs.readdirSync(dir).filter(f => f.endsWith(".js")).length === 0);
-o = await run("Write.js", { dir, query: { word: "谢谢" }, offline: true });
+o = await run("Write 2.js", { dir, query: { word: "谢谢" }, offline: true });
 check("a word written before works offline", o.html.length === 1 && o.html[0].includes('"src":"谢.json"'));
-o = await run("Write.js", { dir, query: { word: "学生" }, offline: true });
+o = await run("Write 2.js", { dir, query: { word: "学生" }, offline: true });
 check("a new word offline says it needs internet", o.html.length === 1 && o.html[0].includes("needs internet") && o.html[0].includes('id="hint" disabled'));
-o = await run("Write.js", { dir: (() => { const d = newDir(); fs.copyFileSync(path.join(ROOT, "data", "hsk1-2.json"), path.join(d, "hsk1-2.json")); return d; })(), offline: true });
+o = await run("Write 2.js", { dir: (() => { const d = newDir(); fs.copyFileSync(path.join(ROOT, "data", "hsk1-2.json"), path.join(d, "hsk1-2.json")); return d; })(), offline: true });
 check("first run offline: a clear message, no error", o.alerts.length === 1 && o.alerts[0].message.includes("needs the internet"));
-o = await run("Write.js", { dir: newDir(), offline: true });
+o = await run("Write 2.js", { dir: newDir(), offline: true });
 check("no word lists: a clear message", o.alerts.length === 1 && o.alerts[0].message.includes("run Hourly Words once"));
 const allWords = JSON.parse(fs.readFileSync(path.join(dir, "hsk1-2.json"), "utf8")).words.map(w => w.hanzi);
 const left = allWords[17];
 fs.writeFileSync(path.join(dir, "hanzi-write.json"), JSON.stringify({ done: Object.fromEntries(allWords.filter(h => h !== left).map(h => [h, 1])), deck: [] }));
-o = await run("Write.js", { dir });
+o = await run("Write 2.js", { dir });
 check("words not written yet come first", o.html[0].includes("CHARS = " + JSON.stringify(Array.from(left).filter(c => /\p{Script=Han}/u.test(c)))));
 fs.writeFileSync(path.join(dir, "mywords.txt"), "螺蛳粉 | luósīfěn | river snail rice noodles\n");
-o = await run("Write.js", { dir, query: { word: "螺蛳粉" } });
+o = await run("Write 2.js", { dir, query: { word: "螺蛳粉" } });
 check("Write also has my own words", o.html[0].includes("luósīfěn") && o.html[0].includes("My words"));
 
 // ---------- Add Word ----------

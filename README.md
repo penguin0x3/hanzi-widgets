@@ -6,7 +6,7 @@ Learn Chinese without opening an app. New words and radicals show up on your iPh
 - **Levels:** HSK 1-2, HSK 3, HSK 4, HSK 5. Lists download by themselves from this repo and work offline after that.
 - **Add Word:** share a Chinese word from any app to add it to your own list. Pinyin and meaning are filled in.
 - **Radicals** (iPhone Home Screen): one of 50 common radicals, with 3 example characters. Tap it for a word and an example sentence with sound for each character.
-- **Write** (iPhone, in Scriptable): practice writing characters with your finger. Trace each character twice, then write it from memory. Wrong strokes turn red. It only reads the word lists, so the widgets are not changed.
+- **Write** (iPhone, in Scriptable): practice writing characters with your finger, starting with 20 radicals and then the simplest words (order in `scriptable/write-path.txt`). Trace each character twice, then write it from memory. **Write 2** does the same with random words from your HSK levels. Wrong strokes turn red. It only reads the word lists, so the widgets are not changed.
 - **MacHanzi** (Mac, optional): the same words in the menu bar, plus a word card and a radical card on the desktop.
 
 Setup guide: [GUIDE.md](GUIDE.md)
@@ -15,7 +15,7 @@ Setup guide: [GUIDE.md](GUIDE.md)
 
 | Folder | Files |
 |---|---|
-| `scriptable/` | `Install.js` (start here), `Hourly Words.js`, `Add Word.js`, `Radicals.js`, `Write.js`, `radicals.txt`, `files.txt` (the list Install downloads) |
+| `scriptable/` | `Install.js` (start here), `Hourly Words.js`, `Add Word.js`, `Radicals.js`, `Write.js`, `Write 2.js`, `write-path.txt`, `radicals.txt`, `files.txt` (the list Install downloads) |
 | `data/` | `hsk1-2.json`, `hsk3.json`, `hsk4.json`, `hsk5.json` (word lists), `dict.txt` (dictionary for Add Word) |
 | `mac/` | `main.swift`, `Info.plist`, `build.sh` (MacHanzi source) |
 | `tools/` | `build_data.py` (makes the files in `data/` from the sources below) |

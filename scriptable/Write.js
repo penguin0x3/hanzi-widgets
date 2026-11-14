@@ -3,6 +3,9 @@
 // icon-color: deep-brown; icon-glyph: pen-nib;
 
 // Write: practice writing Chinese characters with your finger.
+// - MODE "path" (Write): radicals first, then the simplest words, in the order of
+//   write-path.txt on GitHub. It remembers where you stopped.
+// - MODE "random" (Write 2): words from your HSK levels, words not written yet first.
 // - Each word: 3 rounds per character. Rounds 1-2: trace over a faint character.
 //   Round 3: write it from memory on an empty grid.
 // - A wrong stroke turns red. After 3 misses, the right stroke is shown.
@@ -13,6 +16,7 @@
 // The library and stroke data download the first time and are saved in the
 // hanzi-write folder, so characters you wrote before also work offline.
 
+const MODE = "path"; // "path" or "random" (see above)
 const REPO = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/";
 const LIB_URL = "https://cdn.jsdelivr.net/npm/hanzi-writer@3.7.3/dist/hanzi-writer.min.js";
 const DATA_URL = "https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0.1/";
@@ -25,7 +29,8 @@ const dir = fm.documentsDirectory();
 const path = name => fm.joinPath(dir, name);
 const CACHE = path("hanzi-write"); // a folder, so these files do not show up as scripts
 const LIB = fm.joinPath(CACHE, "hanzi-writer.min.js");
-const WRITE = path("hanzi-write.json");
+const WRITE = path(MODE === "path" ? "hanzi-write-path.json" : "hanzi-write.json");
+const PATH_FILE = fm.joinPath(CACHE, "write-path.txt");
 
 // ---------- files (read only for shared files) ----------
 async function readText(p) {
@@ -73,6 +78,25 @@ async function loadWords(levels) {
   };
   for (const lv of levels) for (const w of (await getLevel(lv)) || []) add(w, lv);
   for (const w of await myWords()) add(w, "mine");
+  return { words, byHanzi };
+}
+
+// The path list: the newest copy from GitHub, or the saved copy when offline.
+async function loadPath() {
+  let t = await download(REPO + "scriptable/write-path.txt");
+  if (t && t.includes("|")) {
+    if (!fm.fileExists(CACHE)) fm.createDirectory(CACHE, true);
+    save(PATH_FILE, t);
+  } else t = await readText(PATH_FILE);
+  const words = [], byHanzi = {};
+  for (const l of (t || "").split(/\r?\n/)) {
+    const line = l.trim();
+    if (!line || line.startsWith("#")) continue;
+    const p = line.split(/\s*\|\s*/);
+    if (!p[0] || !hanOnly(p[0]).length || byHanzi[p[0]]) continue;
+    byHanzi[p[0]] = { hanzi: p[0], pinyin: p[1] || "", short: p.slice(2).join(" | "), level: "path" };
+    words.push(byHanzi[p[0]]);
+  }
   return { words, byHanzi };
 }
 
@@ -176,7 +200,7 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 .bar button.main { background:var(--ink); color:var(--bg); border-color:var(--ink); }
 .bar button[disabled] { opacity:.4; }
 </style></head><body>
-<div class="top"><span>Write</span><span class="lv">${esc(levelName)}</span></div>
+<div class="top"><span>Write</span>${levelName ? `<span class="lv">${esc(levelName)}</span>` : ""}</div>
 <div class="word"><span class="pinyin">${esc(w.pinyin)}</span><button class="play" onclick="say(${esc(JSON.stringify(w.hanzi))})">Play</button></div>
 <div class="mean">${esc(meaning)}</div>
 ${body}
@@ -297,10 +321,12 @@ st.done = st.done || {};
 st.deck = Array.isArray(st.deck) ? st.deck : [];
 const saveState = () => save(WRITE, JSON.stringify(st));
 
-const pack = await loadWords(levels);
+const pack = MODE === "path" ? await loadPath() : await loadWords(levels);
 const lib = pack.words.length ? await getLib() : null;
 if (!pack.words.length) {
-  await info("Write", "No words yet. Connect to the internet and run Hourly Words once, then run Write again.");
+  await info("Write", MODE === "path"
+    ? "Write needs the internet the first time, to get the list. Connect and run Write again."
+    : "No words yet. Connect to the internet and run Hourly Words once, then run Write again.");
 } else if (!lib) {
   await info("Write", "Write needs the internet the first time, to get the stroke data. Connect and run Write again.");
 } else {
@@ -308,9 +334,15 @@ if (!pack.words.length) {
   async function pageFor(w) {
     const strokes = {};
     for (const c of hanOnly(w.hanzi)) { const d = await getStrokes(c); if (d) strokes[c] = d; }
-    return pageHTML(w, lib, strokes, w.level === "mine" ? LEVEL_NAMES.mine : levelName);
+    return pageHTML(w, lib, strokes, MODE === "path" ? "" : w.level === "mine" ? LEVEL_NAMES.mine : levelName);
   }
-  let w = (q.word && pack.byHanzi[q.word]) || nextWord(st, pack);
+  // Path: st.pos is the item to show next time. Finishing a word moves it on,
+  // so closing Write after a word starts at the next one.
+  const n = pack.words.length;
+  st.pos = Number.isInteger(st.pos) ? ((st.pos % n) + n) % n : 0;
+  let cur = st.pos;
+  const pick = () => MODE === "path" ? pack.words[cur] : nextWord(st, pack);
+  let w = (q.word && pack.byHanzi[q.word]) || pick();
   saveState();
   const wv = new WebView();
   let busy = Promise.resolve();
@@ -318,9 +350,11 @@ if (!pack.words.length) {
     if (a.startsWith("done:")) {
       const h = a.slice(5);
       st.done[h] = (st.done[h] || 0) + 1;
+      if (MODE === "path" && pack.words[cur] && pack.words[cur].hanzi === h) st.pos = (cur + 1) % n;
       saveState();
     } else if (a === "next") {
-      w = nextWord(st, pack);
+      if (MODE === "path") { cur = st.pos === cur ? (cur + 1) % n : st.pos; st.pos = cur; }
+      w = pick();
       saveState();
       await wv.loadHTML(await pageFor(w));
     } else if (a.startsWith("speak:")) {

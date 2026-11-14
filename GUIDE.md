@@ -18,7 +18,7 @@ Get **Scriptable** (free) from the App Store and open it once.
 2. In Scriptable, tap **+** (top right), paste the code, and tap the title at the top to rename it to `Install`.
 3. Tap **Done**, then tap `Install` to run it, then tap **Install**.
 
-You now have 4 scripts: `Hourly Words`, `Radicals`, `Add Word` and `Write`. Run `Install` again any time to get the newest version. It also updates itself and adds new scripts when there are any. Your settings and words are kept.
+You now have 5 scripts: `Hourly Words`, `Radicals`, `Add Word`, `Write` and `Write 2`. Run `Install` again any time to get the newest version. It also updates itself and adds new scripts when there are any. Your settings and words are kept.
 
 ## Step 3. Choose your levels
 
@@ -46,12 +46,12 @@ Tap the widget to open the radical page: each example character with a common wo
 
 ## Practice writing characters
 
-Run `Write` in Scriptable. It shows a word from your levels with its pinyin and meaning.
+Run `Write` in Scriptable. It starts with 20 radicals, then about 45 of the simplest words (我, 你, 谢谢, 没有...), always in the same order. It remembers where you stopped. `Write 2` works the same way but picks random words from your HSK levels.
 
 1. **Rounds 1 and 2:** trace each stroke over the faint character, in the right order.
 2. **Round 3:** write the character from memory on the empty grid.
 
-A wrong stroke turns red. After 3 misses, the right stroke is shown. **Hint** shows the faint character again, **Show strokes** plays the stroke order, **Next word** skips to another word. Words you have not written yet come first.
+A wrong stroke turns red. After 3 misses, the right stroke is shown. **Hint** shows the faint character again, **Show strokes** plays the stroke order, **Next word** skips to another word. In `Write 2`, words you have not written yet come first.
 
 Write needs internet the first time it shows a character. After that, the characters you wrote also work offline. It does not change your widgets, settings or progress.
 

@@ -1,0 +1,72 @@
+# Write path: the order of the Write script. One item per line: hanzi | pinyin | meaning
+# Lines starting with # are skipped. Change the order or add lines here.
+
+# Part 1: radicals
+人 | rén | Person
+亻 | rén | Standing person (side of 你, 他, 们)
+口 | kǒu | Mouth
+女 | nǚ | Woman
+子 | zǐ | Child
+大 | dà | Big
+力 | lì | Power
+又 | yòu | Again, right hand
+土 | tǔ | Earth
+日 | rì | Sun, day
+月 | yuè | Moon
+木 | mù | Tree
+心 | xīn | Heart
+忄 | xīn | Heart (side)
+氵 | shuǐ | Water (3 dots)
+讠 | yán | Speech (side)
+扌 | shǒu | Hand (side)
+门 | mén | Door
+宀 | mián | Roof
+艹 | cǎo | Grass (top)
+
+# Part 2: simple words (人 and 大 are already in part 1)
+一 | yī | one
+二 | èr | two
+三 | sān | three
+十 | shí | ten
+我 | wǒ | I, me
+你 | nǐ | you
+他 | tā | he
+她 | tā | she
+们 | men | plural (我们 we, 你们 you all)
+你好 | nǐ hǎo | hello
+谢谢 | xièxie | thank you
+再见 | zàijiàn | goodbye
+对不起 | duìbuqǐ | sorry
+没关系 | méi guānxi | it's OK, no problem
+小 | xiǎo | small
+中 | zhōng | middle
+好 | hǎo | good
+是 | shì | to be
+不 | bù | no, not
+有 | yǒu | to have
+没有 | méiyǒu | not have
+很 | hěn | very
+也 | yě | also
+吗 | ma | (question word)
+的 | de | (of, 's)
+了 | le | (done, changed)
+在 | zài | at, in
+爸爸 | bàba | dad
+妈妈 | māma | mom
+家 | jiā | home, family
+吃 | chī | to eat
+喝 | hē | to drink
+去 | qù | to go
+来 | lái | to come
+看 | kàn | to look, to watch
+说 | shuō | to speak
+想 | xiǎng | to want, to think
+喜欢 | xǐhuan | to like
+水 | shuǐ | water
+茶 | chá | tea
+米饭 | mǐfàn | cooked rice
+今天 | jīntiān | today
+明天 | míngtiān | tomorrow
+中国 | Zhōngguó | China
+学生 | xuésheng | student
+老师 | lǎoshī | teacher

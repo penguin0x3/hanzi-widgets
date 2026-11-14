@@ -4,5 +4,6 @@ Hourly Words.js
 Radicals.js
 Add Word.js
 Write.js
+Write 2.js
 radicals.txt
 Install.js
