@@ -196,7 +196,7 @@ check("page actions are caught and the page stays open", o.allowed.length === 1 
 check("detail page does not use the callback loop", !page.includes("__wait") && page.includes('location.href = "hanzi://"'));
 check("Mark known button updates on the page", page.includes("toggleKnown()"));
 check("detail page escapes HTML", !/<li>[^<]*<script/.test(page));
-check("detail page says Listen, not Play", page.includes(">Listen</button>") && !page.includes(">Play</button>"));
+check("detail page has one Listen, for the word, not the example", (page.match(/>Listen<\/button>/g) || []).length === 1 && !page.includes(">Play</button>"));
 check("detail page has one Write button, for the word", (page.match(/>Write<\/button>/g) || []).length === 1);
 o = await run("Hourly Words.js", { dir, query: { word: "晚上", levels: "hsk1-2" }, web: ['write:["晚上","wǎnshang","evening"]'] });
 check("Write button opens the Write script on that word", o.opened.length === 1 && o.opened[0].startsWith("scriptable:///run/Write?word=" + encodeURIComponent("晚上") + "&pinyin=") && o.allowed[0] === false);

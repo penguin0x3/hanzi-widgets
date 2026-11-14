@@ -243,8 +243,8 @@ function detailHTML(r, words) {
     return `<div class="card">
 <div class="row"><span class="ch">${esc(e.char)}</span><div><div class="py">${esc(e.pinyin)}</div><div class="mn">${esc(e.meaning)}</div></div>
 <span class="sp"></span>${playBtn(e.char)} ${writeBtn(e.char, e.pinyin, e.meaning)}</div>
-${f.word ? `<div class="word"><span class="label">Word</span> <b>${esc(f.word.hanzi)}</b> <span class="py">${esc(f.word.pinyin)}</span> <span class="mn">${esc(f.word.short)}</span> ${playBtn(f.word.hanzi)}</div>` : ""}
-${f.example ? `<div class="ex"><div class="zh">${esc(f.example.zh)} ${playBtn(f.example.zh)}</div>
+${f.word ? `<div class="word"><span class="label">Word</span> <b>${esc(f.word.hanzi)}</b> <span class="py">${esc(f.word.pinyin)}</span> <span class="mn">${esc(f.word.short)}</span></div>` : ""}
+${f.example ? `<div class="ex"><div class="zh">${esc(f.example.zh)}</div>
 <div class="py">${esc(f.example.pinyin)}</div><div class="mn">${esc(f.example.en)}</div></div>` : ""}
 </div>`;
   }).join("");

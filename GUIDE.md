@@ -42,7 +42,7 @@ A word you tap on the Lock Screen comes back the next day for a quick review. Ta
 2. Find **Scriptable**, pick the **medium** size, and add it.
 3. Press and hold the widget, tap **Edit Widget**. Under **Script**, choose `Radicals`.
 
-Tap the widget to open the radical page: each example character with a common word, an example sentence and **Listen**. **Write** next to the radical or a character opens it in Write. Tap **Next radical** to see another one.
+Tap the widget to open the radical page: each example character with a common word and an example sentence. **Listen** and **Write** next to the radical or a character opens it in Write. Tap **Next radical** to see another one.
 
 ## Practice writing characters
 

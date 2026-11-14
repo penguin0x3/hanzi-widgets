@@ -83,7 +83,7 @@ const page = app.html[0] || "";
 check("in-app run opens the detail page of the current radical", app.html.length === 1 && page.includes('<div class="rad">' + a.texts[0] + "</div>"));
 const exChars = lines.find(l => l.split("|")[0].trim() === a.texts[0]).split("|")[4].split(";").map(e => e.trim().split(/\s+/)[0]);
 check("detail page has one block per example character", (page.match(/class="card"/g) || []).length === exChars.length && exChars.every(c => page.includes('<span class="ch">' + c)));
-check("detail page has Listen buttons, no Play", (page.match(/>Listen</g) || []).length >= exChars.length && !page.includes(">Play<"));
+check("detail page has 4 Listen buttons (radical and 3 characters), no Play", (page.match(/>Listen</g) || []).length === 4 && !page.includes(">Play<"));
 check("detail page has 4 Write buttons: the radical and its 3 characters", (page.match(/>Write</g) || []).length === 4);
 const wr = await run(null, false, t, { dir: tmp, query: { radical: "氵" }, web: ['write:["河","hé","river"]'] });
 check("Write button opens the Write script on that character", wr.opened.length === 1 && wr.opened[0] === "scriptable:///run/Write?word=" + encodeURIComponent("河") + "&pinyin=h%C3%A9&meaning=river" && wr.allowed[0] === false);

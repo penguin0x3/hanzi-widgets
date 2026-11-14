@@ -304,8 +304,7 @@ ol { margin:0; padding-left:24px; } li { margin:4px 0; }
 <h2>Meaning</h2>
 <ol>${senses.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
 ${w.measure ? `<div class="mw">Measure word: <b>${esc(w.measure)}</b></div>` : ""}
-${ex ? `<h2>Example</h2><div class="ex"><div class="zh">${esc(ex.zh)}
-<button class="play" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(ex.zh))})">Listen</button></div>
+${ex ? `<h2>Example</h2><div class="ex"><div class="zh">${esc(ex.zh)}</div>
 <div class="py">${esc(ex.pinyin)}</div><div class="en">${esc(ex.en)}</div></div>` : ""}
 <div class="foot">Seen ${countSeen(pack.words)} of ${pack.words.length} words in your levels.
 ${ex ? "<br>Example from Tatoeba. " : "<br>"}Meanings from CC-CEDICT.</div>
