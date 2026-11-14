@@ -273,14 +273,14 @@ function detailHTML(w, pack) {
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
-:root { --bg:#F5EFE3; --ink:#2B2118; --red:#A8392B; --grey:#6B5E50; --line:#E2D8C6; --card:#FBF7EF; }
-@media (prefers-color-scheme: dark) { :root { --bg:#1E1A16; --ink:#F1E9DC; --red:#E07A5F; --grey:#B5A894; --line:#3A332B; --card:#28231E; } }
+:root { --bg:#F4F5F2; --ink:#000000; --accent:#108652; --grey:#5F665F; --line:#DCE0DA; --card:#FFFFFF; --soft:#97DF67; --on:#FFFFFF; --bad:#C0392B; --ok:#108652; }
+@media (prefers-color-scheme: dark) { :root { --bg:#000000; --ink:#FFFFFF; --accent:#97DF67; --grey:#9DA39D; --line:#343B34; --card:#121512; --soft:#108652; --on:#000000; --bad:#FF7A6B; --ok:#97DF67; } }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { margin:0; padding:24px 20px 140px; background:var(--bg); color:var(--ink);
   font: 17px/1.45 -apple-system, "PingFang SC", sans-serif; }
 .hanzi { font-size:72px; font-weight:600; line-height:1.1; letter-spacing:2px; }
 .row { display:flex; align-items:center; gap:12px; margin-top:6px; }
-.pinyin { font-size:24px; color:var(--red); font-weight:600; }
+.pinyin { font-size:24px; color:var(--accent); font-weight:600; }
 .play { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:20px;
   padding:6px 14px; font-size:15px; }
 .tag { display:inline-block; margin-top:10px; font-size:13px; color:var(--grey); border:1px solid var(--line);
@@ -288,23 +288,24 @@ body { margin:0; padding:24px 20px 140px; background:var(--bg); color:var(--ink)
 h2 { font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--grey); margin:26px 0 8px; font-weight:600; }
 ol { margin:0; padding-left:24px; } li { margin:4px 0; }
 .mw { margin-top:8px; color:var(--grey); } .mw b { color:var(--ink); }
-.ex { border-left:3px solid var(--red); padding:4px 0 4px 14px; }
-.ex .zh { font-size:22px; } .ex .py { color:var(--red); font-size:15px; margin-top:2px; } .ex .en { color:var(--grey); margin-top:2px; }
+.ex { border-left:3px solid var(--accent); padding:4px 0 4px 14px; }
+.ex .zh { font-size:22px; } .ex .py { color:var(--accent); font-size:15px; margin-top:2px; } .ex .en { color:var(--grey); margin-top:2px; }
 .bar { position:fixed; left:0; right:0; bottom:0; padding:12px 20px 34px; background:var(--bg); border-top:1px solid var(--line);
   display:flex; gap:10px; }
 .bar button { flex:1; font-size:17px; padding:14px; border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
-.bar button.on { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+.bar button.on { background:var(--accent); color:var(--on); border-color:var(--accent); }
 .foot { color:var(--grey); font-size:13px; margin-top:28px; }
 </style></head><body>
 <div class="hanzi">${esc(w.hanzi)}</div>
 <div class="row"><span class="pinyin">${esc(w.pinyin)}</span>
-<button class="play" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(w.hanzi))})">Play</button></div>
+<button class="play" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(w.hanzi))})">Listen</button>
+<button class="play" onclick="act(${esc(JSON.stringify("write:" + JSON.stringify([w.hanzi, w.pinyin || "", w.short || senses[0] || ""])))})">Write</button></div>
 <span class="tag">${esc(LEVEL_NAMES[w.level] || w.level)}</span>
 <h2>Meaning</h2>
 <ol>${senses.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
 ${w.measure ? `<div class="mw">Measure word: <b>${esc(w.measure)}</b></div>` : ""}
 ${ex ? `<h2>Example</h2><div class="ex"><div class="zh">${esc(ex.zh)}
-<button class="play" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(ex.zh))})">Play</button></div>
+<button class="play" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(ex.zh))})">Listen</button></div>
 <div class="py">${esc(ex.pinyin)}</div><div class="en">${esc(ex.en)}</div></div>` : ""}
 <div class="foot">Seen ${countSeen(pack.words)} of ${pack.words.length} words in your levels.
 ${ex ? "<br>Example from Tatoeba. " : "<br>"}Meanings from CC-CEDICT.</div>
@@ -375,6 +376,12 @@ async function showDetail(first, pack) {
       await wv.loadHTML(detailHTML(w, pack));
     } else if (a.startsWith("speak:")) {
       Speech.speak(a.slice(6));
+    } else if (a.startsWith("write:")) {
+      // Run the Write script on this word. Write keeps your place in its own list.
+      let p = [];
+      try { p = JSON.parse(a.slice(6)); } catch (e) { return; }
+      Safari.open("scriptable:///run/" + encodeURIComponent("Write") + "?word=" + encodeURIComponent(p[0] || "") +
+        "&pinyin=" + encodeURIComponent(p[1] || "") + "&meaning=" + encodeURIComponent(p[2] || ""));
     }
   }
   wv.shouldAllowRequest = req => {

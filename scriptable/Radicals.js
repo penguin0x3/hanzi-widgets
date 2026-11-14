@@ -17,10 +17,10 @@ const LIST_FILE = "radicals.txt";
 const MINUTES = 10; // a new radical every 10 minutes (iOS decides the real refresh time)
 
 // Colors: "paper and ink", same as the Mac desktop card
-const BG = new Color("#F5EFE3");
-const INK = new Color("#2B2118");
-const RED = new Color("#A8392B");
-const GREY = new Color("#6B5E50");
+const BG = Color.dynamic(new Color("#F4F5F2"), new Color("#000000"));
+const INK = Color.dynamic(new Color("#000000"), new Color("#FFFFFF"));
+const RED = Color.dynamic(new Color("#108652"), new Color("#97DF67")); // accent (pinyin)
+const GREY = Color.dynamic(new Color("#5F665F"), new Color("#9DA39D"));
 
 const fm = FileManager.iCloud();
 const listPath = fm.joinPath(fm.documentsDirectory(), LIST_FILE);
@@ -233,14 +233,16 @@ function esc(s) {
 const SPEAK = { "氵": "水", "亻": "人", "扌": "手", "艹": "草", "忄": "心", "辶": "绰", "讠": "言", "纟": "丝",
   "钅": "金", "饣": "食", "宀": "棉", "灬": "火", "衤": "衣", "王": "玉", "刂": "刀", "阝": "阜", "冫": "冰",
   "疒": "讷", "囗": "围", "犭": "犬", "礻": "示", "攵": "扑", "彳": "赤" };
-const playBtn = t => `<button class="play" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(t))})">Play</button>`;
+const playBtn = t => `<button class="play" ontouchstart="warmUp()" onclick="say(${esc(JSON.stringify(t))})">Listen</button>`;
+// Write opens the Write script on this one character (see openWrite).
+const writeBtn = (c, py, mn) => `<button class="play" onclick="act(${esc(JSON.stringify("write:" + JSON.stringify([c, py || "", mn || ""])))})">Write</button>`;
 
 function detailHTML(r, words) {
   const blocks = r.examples.map(e => {
     const f = wordFor(e.char, words);
     return `<div class="card">
 <div class="row"><span class="ch">${esc(e.char)}</span><div><div class="py">${esc(e.pinyin)}</div><div class="mn">${esc(e.meaning)}</div></div>
-<span class="sp"></span>${playBtn(e.char)}</div>
+<span class="sp"></span>${playBtn(e.char)} ${writeBtn(e.char, e.pinyin, e.meaning)}</div>
 ${f.word ? `<div class="word"><span class="label">Word</span> <b>${esc(f.word.hanzi)}</b> <span class="py">${esc(f.word.pinyin)}</span> <span class="mn">${esc(f.word.short)}</span> ${playBtn(f.word.hanzi)}</div>` : ""}
 ${f.example ? `<div class="ex"><div class="zh">${esc(f.example.zh)} ${playBtn(f.example.zh)}</div>
 <div class="py">${esc(f.example.pinyin)}</div><div class="mn">${esc(f.example.en)}</div></div>` : ""}
@@ -249,22 +251,22 @@ ${f.example ? `<div class="ex"><div class="zh">${esc(f.example.zh)} ${playBtn(f.
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
-:root { --bg:#F5EFE3; --ink:#2B2118; --red:#A8392B; --grey:#6B5E50; --line:#E2D8C6; --card:#FBF7EF; }
-@media (prefers-color-scheme: dark) { :root { --bg:#1E1A16; --ink:#F1E9DC; --red:#E07A5F; --grey:#B5A894; --line:#3A332B; --card:#28231E; } }
+:root { --bg:#F4F5F2; --ink:#000000; --accent:#108652; --grey:#5F665F; --line:#DCE0DA; --card:#FFFFFF; --soft:#97DF67; --on:#FFFFFF; --bad:#C0392B; --ok:#108652; }
+@media (prefers-color-scheme: dark) { :root { --bg:#000000; --ink:#FFFFFF; --accent:#97DF67; --grey:#9DA39D; --line:#343B34; --card:#121512; --soft:#108652; --on:#000000; --bad:#FF7A6B; --ok:#97DF67; } }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { margin:0; padding:24px 20px 120px; background:var(--bg); color:var(--ink);
   font: 17px/1.45 -apple-system, "PingFang SC", sans-serif; }
 .top { display:flex; align-items:center; gap:18px; }
 .rad { font-size:84px; font-weight:700; line-height:1; }
 .name { font-size:24px; font-weight:700; } .top .py { font-size:20px; }
-.py { color:var(--red); font-weight:600; } .mn { color:var(--grey); }
+.py { color:var(--accent); font-weight:600; } .mn { color:var(--grey); }
 h2 { font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--grey); margin:26px 0 10px; font-weight:600; }
 .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px; margin-bottom:12px; }
 .row { display:flex; align-items:center; gap:14px; } .sp { flex:1; }
 .ch { font-size:44px; font-weight:500; line-height:1.1; }
 .word { margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
 .word b { font-size:20px; font-weight:600; } .label { font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--grey); }
-.ex { margin-top:10px; border-left:3px solid var(--red); padding:2px 0 2px 12px; }
+.ex { margin-top:10px; border-left:3px solid var(--accent); padding:2px 0 2px 12px; }
 .ex .zh { font-size:20px; } .ex .py { font-size:15px; font-weight:500; }
 .play { border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:16px; padding:4px 12px; font-size:14px; vertical-align:middle; }
 .bar { position:fixed; left:0; right:0; bottom:0; padding:12px 20px 34px; background:var(--bg); border-top:1px solid var(--line); }
@@ -272,7 +274,7 @@ h2 { font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--g
 .foot { color:var(--grey); font-size:13px; margin-top:20px; }
 </style></head><body>
 <div class="top"><div class="rad">${esc(r.radical)}</div>
-<div><div class="name">${esc(r.name)}</div><div class="py">${esc(r.pinyin)} ${playBtn(SPEAK[r.radical] || r.radical)}</div>${r.meaning ? `<div class="mn">${esc(r.meaning)}</div>` : ""}</div></div>
+<div><div class="name">${esc(r.name)}</div><div class="py">${esc(r.pinyin)} ${playBtn(SPEAK[r.radical] || r.radical)} ${writeBtn(r.radical, r.pinyin, r.meaning || r.name)}</div>${r.meaning ? `<div class="mn">${esc(r.meaning)}</div>` : ""}</div></div>
 <h2>Characters with this radical</h2>
 ${blocks}
 <div class="foot">${words.length ? "Words and sentences from your HSK lists (CC-CEDICT, Tatoeba)." : "Run Hourly Words once to get words and example sentences here."}</div>
@@ -309,6 +311,14 @@ function act(a) { location.href = "hanzi://" + encodeURIComponent(a); }
 </script></body></html>`;
 }
 
+// Write button: run the Write script on one character. Write keeps your place in its own list.
+function openWrite(a) {
+  let p = [];
+  try { p = JSON.parse(a.slice(6)); } catch (e) { return; }
+  Safari.open("scriptable:///run/" + encodeURIComponent("Write") + "?word=" + encodeURIComponent(p[0] || "") +
+    "&pinyin=" + encodeURIComponent(p[1] || "") + "&meaning=" + encodeURIComponent(p[2] || ""));
+}
+
 // The page asks for "next" by opening hanzi://next; we catch it and load the next radical.
 async function showDetail(start) {
   const words = await loadWords();
@@ -319,7 +329,9 @@ async function showDetail(start) {
   wv.shouldAllowRequest = req => {
     const u = String((req && req.url) || "");
     if (!u.startsWith("hanzi://")) return true;
-    if (decodeURIComponent(u.slice(8)) === "next") {
+    const a = decodeURIComponent(u.slice(8));
+    if (a.startsWith("write:")) openWrite(a);
+    else if (a === "next") {
       k += 1;
       busy = busy.then(() => wv.loadHTML(detailHTML(itemAt(k), words))).catch(e => console.log("next failed: " + e));
     }

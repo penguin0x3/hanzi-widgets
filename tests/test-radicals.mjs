@@ -22,7 +22,7 @@ function makeEnv(family, inWidget, nowMs, opts = {}) {
       fileExists: p => fs.existsSync(p), downloadFileFromiCloud: async () => {}, readString: p => (opts.unreadable ? null : fs.readFileSync(p, "utf8")),
       writeString: (p, t) => fs.writeFileSync(p, t),
     }) },
-    Color: class { constructor(h) { this.h = h; } },
+    Color: class { constructor(h) { this.h = h; } static dynamic(a, b) { return a; } },
     Font: { systemFont: s => s, boldSystemFont: s => s, semiboldSystemFont: s => s, mediumSystemFont: s => s },
     Size: class { constructor(w, h) { this.w = w; this.h = h; } },
     ListWidget,
@@ -34,15 +34,16 @@ function makeEnv(family, inWidget, nowMs, opts = {}) {
       async loadHTML(h) { html.push(h); }
       async present() { for (const a of opts.web || []) { env.allowed.push(this.shouldAllowRequest({ url: "hanzi://" + a })); await new Promise(r => setTimeout(r, 5)); } }
     },
+    Safari: { open: u => env.opened.push(u) },
     console: { log() {} },
     Date: class extends Date { constructor(...a) { a.length ? super(...a) : super(nowMs); } },
   };
-  env.texts = texts; env.html = html; env.allowed = [];
+  env.texts = texts; env.html = html; env.allowed = []; env.opened = [];
   return env;
 }
 async function run(family, inWidget, nowMs, opts) {
   const env = makeEnv(family, inWidget, nowMs, opts);
-  const names = Object.keys(env).filter(k => !["texts", "widget", "html", "allowed"].includes(k));
+  const names = Object.keys(env).filter(k => !["texts", "widget", "html", "allowed", "opened"].includes(k));
   await new AsyncFunction(...names, src)(...names.map(n => env[n]));
   return env;
 }
@@ -82,7 +83,10 @@ const page = app.html[0] || "";
 check("in-app run opens the detail page of the current radical", app.html.length === 1 && page.includes('<div class="rad">' + a.texts[0] + "</div>"));
 const exChars = lines.find(l => l.split("|")[0].trim() === a.texts[0]).split("|")[4].split(";").map(e => e.trim().split(/\s+/)[0]);
 check("detail page has one block per example character", (page.match(/class="card"/g) || []).length === exChars.length && exChars.every(c => page.includes('<span class="ch">' + c)));
-check("detail page has Play buttons", (page.match(/>Play</g) || []).length >= exChars.length);
+check("detail page has Listen buttons, no Play", (page.match(/>Listen</g) || []).length >= exChars.length && !page.includes(">Play<"));
+check("detail page has 4 Write buttons: the radical and its 3 characters", (page.match(/>Write</g) || []).length === 4);
+const wr = await run(null, false, t, { dir: tmp, query: { radical: "氵" }, web: ['write:["河","hé","river"]'] });
+check("Write button opens the Write script on that character", wr.opened.length === 1 && wr.opened[0] === "scriptable:///run/Write?word=" + encodeURIComponent("河") + "&pinyin=h%C3%A9&meaning=river" && wr.allowed[0] === false);
 const chePage = (await run(null, false, t, { dir: tmp, query: { radical: "车" } })).html[0];
 check("radical itself has a Play button", /class="py">chē <button class="play"[^>]*say\(&quot;车&quot;\)/.test(chePage));
 const waterPage = (await run(null, false, t, { dir: tmp, query: { radical: "氵" } })).html[0];

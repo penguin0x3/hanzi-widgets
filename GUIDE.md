@@ -32,7 +32,7 @@ You now have 5 scripts: `Hourly Words`, `Radicals`, `Add Word`, `Write` and `Wri
 2. Tap the widget area under the clock, choose **Scriptable**, and pick the **rectangle** widget.
 3. Tap the new widget. Under **Script**, choose `Hourly Words`.
 
-Tap the widget at any time to open the detail page: all meanings, measure word, an example sentence, and **Play** for the sound. Tap **Mark known** for words you already know: they show up much less often. Tap **Next word** to keep going.
+Tap the widget at any time to open the detail page: all meanings, measure word, an example sentence, **Listen** for the sound, and **Write** to practise writing this word. Tap **Mark known** for words you already know: they show up much less often. Tap **Next word** to keep going.
 
 A word you tap on the Lock Screen comes back the next day for a quick review. Tap it again when it comes back and it returns after 3 days, then after 7 days. If you do not tap it, it goes back to the normal mix.
 
@@ -42,7 +42,7 @@ A word you tap on the Lock Screen comes back the next day for a quick review. Ta
 2. Find **Scriptable**, pick the **medium** size, and add it.
 3. Press and hold the widget, tap **Edit Widget**. Under **Script**, choose `Radicals`.
 
-Tap the widget to open the radical page: each example character with a common word, an example sentence and **Play**. Tap **Next radical** to see another one.
+Tap the widget to open the radical page: each example character with a common word, an example sentence and **Listen**. **Write** next to the radical or a character opens it in Write. Tap **Next radical** to see another one.
 
 ## Practice writing characters
 
@@ -54,6 +54,8 @@ Run `Write` in Scriptable. It starts with 20 radicals, then about 45 of the simp
 All characters of a word sit side by side, and each round you write the whole word, so you see it as one piece. Words with 3 or more characters get smaller boxes: turn your phone sideways to make them bigger.
 
 A wrong stroke turns red. After 3 misses, the right stroke is shown. **Hint** shows the faint character for 3 seconds in round 3 (you can keep writing), **Show strokes** plays the stroke order of the whole word, and **Next word** skips to another word. Tap any other box to see the stroke order of that character. In `Write 2`, words you have not written yet come first.
+
+The **Write** button on the word and radical pages opens Write on just that character or word. Tap **Next word** after it to go back to your place in the list; that one word does not move your place.
 
 Write needs internet the first time it shows a character. After that, the characters you wrote also work offline. It does not change your widgets, settings or progress.
 
@@ -76,7 +78,9 @@ In a widget's settings, type a level in **Parameter**, for example `hsk4` or `hs
 
 **The widget says "No words yet".** Open Scriptable, run `Hourly Words` once with internet, then wait for the next refresh.
 
-**Play has no sound.** Play uses the Chinese voice of the iPhone and also works in silent mode. Turn up the volume. If it is still quiet, download a Chinese voice: Settings > Accessibility > Spoken Content > Voices > Chinese.
+**Write button does nothing.** It opens the script called `Write`. Keep that name, and run `Install` once if you do not have `Write` yet.
+
+**Listen has no sound.** Listen uses the Chinese voice of the iPhone and also works in silent mode. Turn up the volume. If it is still quiet, download a Chinese voice: Settings > Accessibility > Spoken Content > Voices > Chinese.
 
 **How do I see my progress?** Run `Hourly Words` and tap **Progress**. It shows how many words you have seen and marked known in each level.
 

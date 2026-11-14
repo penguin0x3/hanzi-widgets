@@ -158,24 +158,24 @@ function pageHTML(w, lib, strokes, levelName) {
 <div class="msg" id="msg"></div>
 <div class="tip" id="tip">Turn your phone sideways for bigger boxes.</div>
 </div>` : `
-<div class="main"><div class="msg">No stroke data for this word yet. Write needs internet the first time it shows a character. Tap Next word.</div></div>`;
+<div class="main"><div class="msg">Could not load the strokes for ${esc(w.hanzi)}. Check your internet and try again. A few rare characters have no stroke data.</div></div>`;
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
-:root { --bg:#F5EFE3; --ink:#2B2118; --red:#A8392B; --grey:#6B5E50; --line:#E2D8C6; --card:#FBF7EF; --ok:#3F7D4E; }
-@media (prefers-color-scheme: dark) { :root { --bg:#1E1A16; --ink:#F1E9DC; --red:#E07A5F; --grey:#B5A894; --line:#3A332B; --card:#28231E; --ok:#7FBF8E; } }
+:root { --bg:#F4F5F2; --ink:#000000; --accent:#108652; --grey:#5F665F; --line:#DCE0DA; --card:#FFFFFF; --soft:#97DF67; --on:#FFFFFF; --bad:#C0392B; --ok:#108652; }
+@media (prefers-color-scheme: dark) { :root { --bg:#000000; --ink:#FFFFFF; --accent:#97DF67; --grey:#9DA39D; --line:#343B34; --card:#121512; --soft:#108652; --on:#000000; --bad:#FF7A6B; --ok:#97DF67; } }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink);
   font: 17px/1.45 -apple-system, "PingFang SC", sans-serif; -webkit-user-select:none; user-select:none; }
 .top { display:flex; justify-content:space-between; align-items:center; color:var(--grey); font-size:14px; }
 .lv { border:1px solid var(--line); border-radius:10px; padding:1px 8px; }
 .word { margin-top:14px; display:flex; align-items:center; gap:12px; }
-.pinyin { font-size:26px; color:var(--red); font-weight:600; }
+.pinyin { font-size:26px; color:var(--accent); font-weight:600; }
 .play { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:20px; padding:6px 14px; font-size:15px; }
 .mean { color:var(--grey); font-size:18px; margin-top:2px; }
 .round { margin-top:18px; display:flex; align-items:center; justify-content:space-between; }
 .dots { display:flex; gap:6px; } .dot { width:28px; height:6px; border-radius:3px; background:var(--line); }
-.dot.on { background:var(--ink); } .dot.ok { background:var(--ok); }
+.dot.on { background:var(--ink); } .dot.ok { background:var(--soft); }
 .label { font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--grey); font-weight:600; }
 .pads { margin-top:10px; display:flex; justify-content:center; gap:8px; }
 .pad { flex:none; background:var(--card); border:1px solid var(--line); border-radius:14px; position:relative; touch-action:none; }
@@ -191,16 +191,16 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
   .bar { padding:8px 24px 12px; }
 }
 .msg { text-align:center; min-height:24px; margin-top:12px; color:var(--grey); }
-.msg.bad { color:var(--red); } .msg.good { color:var(--ok); font-weight:600; }
+.msg.bad { color:var(--bad); } .msg.good { color:var(--ok); font-weight:600; }
 .bar { position:fixed; left:0; right:0; bottom:0; padding:12px 20px 30px; background:var(--bg); border-top:1px solid var(--line);
   display:flex; gap:10px; }
 .bar button { flex:1; font-size:16px; padding:13px 6px; border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
-.bar button.main { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+.bar button.main { background:var(--accent); color:var(--on); border-color:var(--accent); }
 .bar button[disabled] { opacity:.4; }
 </style></head><body>
 <div class="head">
 <div class="top"><span>Write</span>${levelName ? `<span class="lv">${esc(levelName)}</span>` : ""}</div>
-<div class="word"><span class="pinyin">${esc(w.pinyin)}</span><button class="play" onclick="say(${esc(JSON.stringify(w.hanzi))})">Play</button></div>
+<div class="word"><span class="pinyin">${esc(w.pinyin)}</span><button class="play" onclick="say(${esc(JSON.stringify(w.hanzi))})">Listen</button></div>
 <div class="mean">${esc(meaning)}</div>
 </div>
 ${body}
@@ -277,7 +277,7 @@ function build() {
     return HanziWriter.create("t" + i, c, {
       width: size, height: size, padding: Math.round(size * 0.06),
       showCharacter: finished || i < ci, showOutline: round < ROUNDS && !finished,
-      strokeColor: css("--ink"), outlineColor: css("--line"), highlightColor: css("--ok"), drawingColor: css("--ink"),
+      strokeColor: css("--ink"), outlineColor: css("--line"), highlightColor: css("--soft"), drawingColor: css("--ink"),
       drawingWidth: Math.max(10, Math.round(size * 0.065)), strokeAnimationSpeed: 1.2, delayBetweenStrokes: 200,
       charDataLoader: function (ch, onLoad, onError) { if (DATA[ch]) onLoad(DATA[ch]); else onError(); }
     });
@@ -377,27 +377,32 @@ st.deck = Array.isArray(st.deck) ? st.deck : [];
 const saveState = () => save(WRITE, JSON.stringify(st));
 
 const pack = MODE === "path" ? await loadPath() : await loadWords(levels);
-const lib = pack.words.length ? await getLib() : null;
-if (!pack.words.length) {
+// Opened with ?word=... (the Write button in Hourly Words or Radicals): practise
+// that one word first. It does not move your place in the list.
+const q = args.queryParameters || {};
+const single = q.word && hanOnly(q.word).length
+  ? pack.byHanzi[q.word] || { hanzi: q.word, pinyin: q.pinyin || "", short: q.meaning || "", level: "one" }
+  : null;
+const lib = pack.words.length || single ? await getLib() : null;
+if (!pack.words.length && !single) {
   await info("Write", MODE === "path"
     ? "Write needs the internet the first time, to get the list. Connect and run Write again."
     : "No words yet. Connect to the internet and run Hourly Words once, then run Write again.");
 } else if (!lib) {
   await info("Write", "Write needs the internet the first time, to get the stroke data. Connect and run Write again.");
 } else {
-  const q = args.queryParameters || {};
   async function pageFor(w) {
     const strokes = {};
     for (const c of hanOnly(w.hanzi)) { const d = await getStrokes(c); if (d) strokes[c] = d; }
-    return pageHTML(w, lib, strokes, MODE === "path" ? "" : w.level === "mine" ? LEVEL_NAMES.mine : levelName);
+    return pageHTML(w, lib, strokes, MODE === "path" || w.level === "one" ? "" : w.level === "mine" ? LEVEL_NAMES.mine : levelName);
   }
   // Path: st.pos is the item to show next time. Finishing a word moves it on,
   // so closing Write after a word starts at the next one.
-  const n = pack.words.length;
+  const n = pack.words.length || 1;
   st.pos = Number.isInteger(st.pos) ? ((st.pos % n) + n) % n : 0;
   let cur = st.pos;
   const pick = () => MODE === "path" ? pack.words[cur] : nextWord(st, pack);
-  let w = (q.word && pack.byHanzi[q.word]) || pick();
+  let w = single || pick();
   saveState();
   const wv = new WebView();
   let busy = Promise.resolve();
@@ -405,10 +410,12 @@ if (!pack.words.length) {
     if (a.startsWith("done:")) {
       const h = a.slice(5);
       st.done[h] = (st.done[h] || 0) + 1;
-      if (MODE === "path" && pack.words[cur] && pack.words[cur].hanzi === h) st.pos = (cur + 1) % n;
+      if (MODE === "path" && w !== single && pack.words[cur] && pack.words[cur].hanzi === h) st.pos = (cur + 1) % n;
       saveState();
     } else if (a === "next") {
-      if (MODE === "path") { cur = st.pos === cur ? (cur + 1) % n : st.pos; st.pos = cur; }
+      if (!pack.words.length) return;
+      // After a single word, Next goes back to your place in the list.
+      if (MODE === "path" && w !== single) { cur = st.pos === cur ? (cur + 1) % n : st.pos; st.pos = cur; }
       w = pick();
       saveState();
       await wv.loadHTML(await pageFor(w));

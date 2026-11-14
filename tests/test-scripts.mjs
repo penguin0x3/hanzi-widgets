@@ -16,7 +16,7 @@ function newDir() { return fs.mkdtempSync(path.join(os.tmpdir(), "scriptable-"))
 // opts: { dir, family, widget, param, query, shared, alerts: [answers], web: [actions], offline }
 async function run(file, opts) {
   const src = fs.readFileSync(path.join(ROOT, "scriptable", file), "utf8");
-  const out = { texts: [], alerts: [], speak: [], html: [], allowed: [], requests: 0 };
+  const out = { texts: [], alerts: [], speak: [], html: [], allowed: [], requests: 0, opened: [] };
   const answers = [...(opts.alerts || [])];
   const webActions = [...(opts.web || [])];
   const mkStack = () => ({
@@ -76,6 +76,7 @@ async function run(file, opts) {
     Font: { systemFont: s => s, boldSystemFont: s => s, semiboldSystemFont: s => s, mediumSystemFont: s => s },
     Color: class {}, Size: class {}, ListWidget, Alert, Request, WebView,
     Speech: { speak: t => out.speak.push(t) },
+    Safari: { open: u => out.opened.push(u) },
     config: { runsInWidget: !!opts.widget, runsInAccessoryWidget: false, widgetFamily: opts.family || null },
     args: { widgetParameter: opts.param || null, queryParameters: opts.query || {}, plainTexts: opts.shared ? [opts.shared] : [] },
     Script: { name: () => file.replace(/\.js$/, ""), setWidget: w => { out.widget = w; }, complete() {} },
@@ -195,6 +196,10 @@ check("page actions are caught and the page stays open", o.allowed.length === 1 
 check("detail page does not use the callback loop", !page.includes("__wait") && page.includes('location.href = "hanzi://"'));
 check("Mark known button updates on the page", page.includes("toggleKnown()"));
 check("detail page escapes HTML", !/<li>[^<]*<script/.test(page));
+check("detail page says Listen, not Play", page.includes(">Listen</button>") && !page.includes(">Play</button>"));
+check("detail page has one Write button, for the word", (page.match(/>Write<\/button>/g) || []).length === 1);
+o = await run("Hourly Words.js", { dir, query: { word: "晚上", levels: "hsk1-2" }, web: ['write:["晚上","wǎnshang","evening"]'] });
+check("Write button opens the Write script on that word", o.opened.length === 1 && o.opened[0].startsWith("scriptable:///run/Write?word=" + encodeURIComponent("晚上") + "&pinyin=") && o.allowed[0] === false);
 
 // ---------- review of tapped words ----------
 dir = newDir();
@@ -274,6 +279,12 @@ check("Write path keeps its own progress file", !fs.existsSync(path.join(dir, "h
 fs.writeFileSync(path.join(dir, "hanzi-write-path.json"), JSON.stringify({ done: {}, deck: [], pos: pathItems.length - 1 }));
 o = await run("Write.js", { dir, web: ["next"] });
 check("after the last item the path starts again", o.html[1].includes(firstChars(pathItems[0])));
+const posBefore = read(dir, "hanzi-write-path.json").pos;
+o = await run("Write.js", { dir, query: { word: "螃蟹", pinyin: "pángxiè", meaning: "crab" }, web: ["done:螃蟹", "next"] });
+check("Write ?word= shows that word, even if it is not in the list", o.html[0].includes(firstChars("螃蟹")) && o.html[0].includes("crab") && o.html[0].includes("pángxiè"));
+check("a single word does not move your place in the list", read(dir, "hanzi-write-path.json").pos === posBefore);
+check("Next after a single word goes back to your place", o.html[1].includes(firstChars(pathItems[posBefore])));
+check("Write page says Listen", o.html[0].includes(">Listen</button>"));
 o = await run("Write.js", { dir, offline: true });
 check("Write path works offline with the saved list", o.html.length === 1 && o.html[0].includes("CHARS = "));
 o = await run("Write.js", { dir: newDir(), offline: true });
@@ -308,7 +319,7 @@ o = await run("Write 2.js", { dir, query: { word: "谢谢" }, offline: true });
 check("a word written before works offline", o.html.length === 1 && o.html[0].includes('"src":"谢.json"'));
 for (const c of "学生") fs.rmSync(path.join(dir, "hanzi-write", "c" + c.codePointAt(0).toString(16) + ".json"), { force: true }); // "Next word" may have saved them
 o = await run("Write 2.js", { dir, query: { word: "学生" }, offline: true });
-check("a new word offline says it needs internet", o.html.length === 1 && o.html[0].includes("needs internet") && o.html[0].includes('id="hint" disabled'));
+check("a new word offline says it needs internet", o.html.length === 1 && o.html[0].includes("Check your internet") && o.html[0].includes('id="hint" disabled'));
 o = await run("Write 2.js", { dir: (() => { const d = newDir(); fs.copyFileSync(path.join(ROOT, "data", "hsk1-2.json"), path.join(d, "hsk1-2.json")); return d; })(), offline: true });
 check("first run offline: a clear message, no error", o.alerts.length === 1 && o.alerts[0].message.includes("needs the internet"));
 o = await run("Write 2.js", { dir: newDir(), offline: true });
