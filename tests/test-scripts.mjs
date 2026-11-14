@@ -265,33 +265,55 @@ const pathLines = fs.readFileSync(path.join(ROOT, "scriptable", "write-path.txt"
 const radIdx = pathLines.map((p, i) => p[3] === "radical" ? i : -1).filter(i => i >= 0);
 check("write-path.txt starts with 20 radicals, each followed by 3 characters", radIdx.length === 20 && radIdx.every((r, k) => r === k * 4) && pathItems[0] === "人" && pathItems[76] === "艹");
 check("the 3 characters after a radical are single characters, not radicals", radIdx.every(r => [1, 2, 3].every(d => Array.from(pathItems[r + d]).length === 1 && pathLines[r + d].length === 3)));
-check("simple words come after the radicals, 你好 early", pathItems.indexOf("你好") > 79 && pathItems.indexOf("你好") < 90);
 check("write-path.txt has no duplicates", new Set(pathItems).size === pathItems.length);
 dir = newDir();
 const firstChars = item => "CHARS = " + JSON.stringify(Array.from(item));
+const radSet = new Set(radIdx.map(r => pathItems[r]));
+const groupOf = {}; radIdx.forEach(r => [1, 2, 3].forEach(d => { groupOf[pathItems[r + d]] = pathItems[r]; }));
+// Checks one random order: every radical comes with its 3 characters, then 1 or 2 other words.
+function goodOrder(order) {
+  if (!order || order.length !== pathItems.length || new Set(order).size !== order.length || !radSet.has(order[0])) return false;
+  for (let i = 0; i < order.length; i++) {
+    if (!radSet.has(order[i])) continue;
+    const r = pathItems.indexOf(order[i]);
+    if (order.slice(i + 1, i + 4).join() !== pathItems.slice(r + 1, r + 4).join()) return false;
+    let k = 0; while (i + 4 + k < order.length && !radSet.has(order[i + 4 + k])) k++;
+    if (i + 4 + k < order.length && (k < 1 || k > 2)) return false;
+    if ([...order.slice(i + 4, i + 4 + k)].some(h => groupOf[h])) return false;
+  }
+  return true;
+}
 o = await run("Write.js", { dir, web: ["next", "next"] });
-check("Write starts with the first radical 人", o.html[0].includes(firstChars("人")) && o.html[0].includes("Person"));
+let order = read(dir, "hanzi-write-path.json").order;
+check("Write starts with a radical and saves a random order", o.html[0].includes(firstChars(order[0])) && radSet.has(order[0]));
+check("each radical comes with its 3 characters, then 1 or 2 other words", goodOrder(order));
+let orders = new Set();
+for (let i = 0; i < 6; i++) { const d2 = newDir(); await run("Write.js", { dir: d2 }); const o2 = read(d2, "hanzi-write-path.json").order; orders.add(o2.join()); if (!goodOrder(o2)) orders.add("bad"); }
+check("the order is random each time and always keeps the rule", orders.size > 3 && !orders.has("bad"));
 check("a radical has a Radical tag at the top", o.html[0].includes('<span class="lv">Radical</span>') && !o.html[0].includes("| radical"));
 check("a character after a radical has no tag", !o.html[1].includes('class="lv"'));
-check("Next goes through the path in order", o.html[1].includes(firstChars(pathItems[1])) && o.html[2].includes(firstChars(pathItems[2])));
+check("Next goes through the order", o.html[1].includes(firstChars(order[1])) && o.html[2].includes(firstChars(order[2])));
 check("Write remembers where you stopped", read(dir, "hanzi-write-path.json").pos === 2);
-o = await run("Write.js", { dir, web: ["done:" + pathItems[2]] });
-check("Write opens where you stopped", o.html[0].includes(firstChars(pathItems[2])));
+o = await run("Write.js", { dir, web: ["done:" + order[2]] });
+check("Write opens where you stopped, same order", o.html[0].includes(firstChars(order[2])) && read(dir, "hanzi-write-path.json").order.join() === order.join());
 check("finishing an item moves to the next one", read(dir, "hanzi-write-path.json").pos === 3);
-o = await run("Write.js", { dir, web: ["done:" + pathItems[3], "next"] });
-check("Next after finishing does not skip an item", o.html[1].includes(firstChars(pathItems[4])) && read(dir, "hanzi-write-path.json").pos === 4);
+o = await run("Write.js", { dir, web: ["done:" + order[3], "next"] });
+check("Next after finishing does not skip an item", o.html[1].includes(firstChars(order[4])) && read(dir, "hanzi-write-path.json").pos === 4);
 check("Write path keeps its own progress file", !fs.existsSync(path.join(dir, "hanzi-write.json")) && !fs.existsSync(path.join(dir, "hanzi-progress.json")));
-fs.writeFileSync(path.join(dir, "hanzi-write-path.json"), JSON.stringify({ done: {}, deck: [], pos: 0, at: "心" }));
-o = await run("Write.js", { dir });
-check("if the list order changes, Write finds your item again", o.html[0].includes(firstChars("心")) && read(dir, "hanzi-write-path.json").pos === pathItems.indexOf("心"));
-fs.writeFileSync(path.join(dir, "hanzi-write-path.json"), JSON.stringify({ done: {}, deck: [], pos: pathItems.length - 1 }));
+const st0 = read(dir, "hanzi-write-path.json");
+fs.writeFileSync(path.join(dir, "hanzi-write-path.json"), JSON.stringify(Object.assign(st0, { pos: order.length - 1 })));
 o = await run("Write.js", { dir, web: ["next"] });
-check("after the last item the path starts again", o.html[1].includes(firstChars(pathItems[0])));
+const order2 = read(dir, "hanzi-write-path.json").order;
+check("after the last item a new random round starts", read(dir, "hanzi-write-path.json").pos === 0 && o.html[1].includes(firstChars(order2[0])) && goodOrder(order2) && order2.join() !== order.join());
+fs.writeFileSync(path.join(dir, "hanzi-write-path.json"), JSON.stringify({ done: {}, deck: [], pos: 12, at: "心" }));
+o = await run("Write.js", { dir });
+check("an old progress file without an order gets a new round", goodOrder(read(dir, "hanzi-write-path.json").order) && read(dir, "hanzi-write-path.json").pos === 0);
+order = read(dir, "hanzi-write-path.json").order;
 const posBefore = read(dir, "hanzi-write-path.json").pos;
 o = await run("Write.js", { dir, query: { word: "螃蟹", pinyin: "pángxiè", meaning: "crab" }, web: ["done:螃蟹", "next"] });
 check("Write ?word= shows that word, even if it is not in the list", o.html[0].includes(firstChars("螃蟹")) && o.html[0].includes("crab") && o.html[0].includes("pángxiè"));
 check("a single word does not move your place in the list", read(dir, "hanzi-write-path.json").pos === posBefore);
-check("Next after a single word goes back to your place", o.html[1].includes(firstChars(pathItems[posBefore])));
+check("Next after a single word goes back to your place", o.html[1].includes(firstChars(order[posBefore])));
 check("Write page says Listen", o.html[0].includes(">Listen</button>"));
 o = await run("Write.js", { dir, offline: true });
 check("Write path works offline with the saved list", o.html.length === 1 && o.html[0].includes("CHARS = "));

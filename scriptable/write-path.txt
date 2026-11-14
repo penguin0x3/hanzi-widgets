@@ -1,9 +1,12 @@
-# Write path: the order of the Write script. One item per line: hanzi | pinyin | meaning
+# Write list. One item per line: hanzi | pinyin | meaning
 # Add "| radical" at the end of a line to mark a radical. Write shows a "Radical" tag on it.
-# Rule: each radical is followed by 3 simple characters that have this radical.
-# Lines starting with # are skipped. Change the order or add lines here.
+# Rule: each radical is followed by 3 simple characters that have this radical,
+# with a blank line after the group. These 4 always come together, in this order.
+# Write mixes everything in a random order: a radical group, then 1 or 2 simple words
+# from part 2, then another radical group. A new random order starts each round.
+# Lines starting with # are skipped. Add lines here.
 
-# Part 1: 20 radicals, each followed by 3 characters with it
+# Part 1: 20 radical groups (radical + 3 characters with it)
 人 | rén | Person | radical
 个 | gè | (measure word, 一个 one)
 从 | cóng | from
@@ -104,7 +107,7 @@
 草 | cǎo | grass
 菜 | cài | dish, vegetable
 
-# Part 2: simple words (single characters from part 1 are not repeated)
+# Part 2: simple words that go between the groups (single characters from part 1 are not repeated)
 一 | yī | one
 二 | èr | two
 三 | sān | three

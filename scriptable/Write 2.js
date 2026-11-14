@@ -3,9 +3,9 @@
 // icon-color: deep-brown; icon-glyph: pen-nib;
 
 // Write: practice writing Chinese characters with your finger.
-// - MODE "path" (Write): 20 radicals, each followed by 3 characters with that radical,
-//   then the simplest words, in the order of write-path.txt on GitHub. Radicals get a
-//   "Radical" tag. It remembers where you stopped, even if the list order changes.
+// - MODE "path" (Write): the radicals and simple words of write-path.txt on GitHub,
+//   in a random order. Each radical always comes with its 3 characters, then 1 or 2
+//   other words. Radicals get a "Radical" tag. It remembers where you stopped.
 // - MODE "random" (Write 2): words from your HSK levels, words not written yet first.
 // - Each word: 3 rounds per character. Rounds 1-2: trace over a faint character.
 //   Round 3: write it from memory on an empty grid.
@@ -89,10 +89,14 @@ async function loadPath() {
     if (!fm.fileExists(CACHE)) fm.createDirectory(CACHE, true);
     save(PATH_FILE, t);
   } else t = await readText(PATH_FILE);
-  const words = [], byHanzi = {};
+  // A radical line starts a group: the radical and the (up to 3) lines right after it.
+  // A blank line ends the group. Every other line is a loose word.
+  const words = [], byHanzi = {}, groups = [], loose = [];
+  let group = null;
   for (const l of (t || "").split(/\r?\n/)) {
     const line = l.trim();
-    if (!line || line.startsWith("#")) continue;
+    if (!line) { group = null; continue; }
+    if (line.startsWith("#")) continue;
     const p = line.split(/\s*\|\s*/);
     if (!p[0] || !hanOnly(p[0]).length || byHanzi[p[0]]) continue;
     // "| radical" at the end marks a radical: Write shows a "Radical" tag on it.
@@ -100,8 +104,25 @@ async function loadPath() {
     if (radical) p.pop();
     byHanzi[p[0]] = { hanzi: p[0], pinyin: p[1] || "", short: p.slice(2).join(" | "), level: "path", radical };
     words.push(byHanzi[p[0]]);
+    if (radical) { group = [p[0]]; groups.push(group); }
+    else if (group && group.length < 4) group.push(p[0]);
+    else { group = null; loose.push(p[0]); }
   }
-  return { words, byHanzi };
+  return { words, byHanzi, groups, loose };
+}
+
+// Random order for Write: each radical comes with its 3 characters, then 1 or 2
+// loose words, then another radical. Groups and words are shuffled.
+function mixOrder(pack) {
+  const groups = shuffle(pack.groups.map(g => g.slice())), loose = shuffle(pack.loose.slice()), out = [];
+  if (!groups.length) return loose;
+  groups.forEach((g, i) => {
+    out.push(...g);
+    const left = loose.length, gaps = groups.length - i;
+    const k = left >= 2 * gaps ? Math.ceil(left / gaps) : left > gaps ? 1 + Math.floor(Math.random() * 2) : Math.min(1, left);
+    out.push(...loose.splice(0, k));
+  });
+  return out;
 }
 
 // ---------- picking words ----------
@@ -378,12 +399,17 @@ const levelName = levels.map(l => LEVEL_NAMES[l]).join(", ");
 const st = await readJSON(WRITE, {});
 st.done = st.done || {};
 st.deck = Array.isArray(st.deck) ? st.deck : [];
-const saveState = () => {
-  if (MODE === "path" && pack.words[st.pos]) st.at = pack.words[st.pos].hanzi;
-  save(WRITE, JSON.stringify(st));
-};
+const saveState = () => save(WRITE, JSON.stringify(st));
 
 const pack = MODE === "path" ? await loadPath() : await loadWords(levels);
+// Path: st.order is this round's random order. A new one is made when the round ends
+// or the list on GitHub changes.
+if (MODE === "path" && pack.words.length) {
+  const same = Array.isArray(st.order) && st.order.length === pack.words.length && st.order.every(h => pack.byHanzi[h]) && new Set(st.order).size === st.order.length;
+  if (!same) { st.order = mixOrder(pack); st.pos = 0; }
+  delete st.at;
+  pack.words = st.order.map(h => pack.byHanzi[h]);
+}
 // Opened with ?word=... (the Write button in Hourly Words or Radicals): practise
 // that one word first. It does not move your place in the list.
 const q = args.queryParameters || {};
@@ -408,9 +434,14 @@ if (!pack.words.length && !single) {
   // so closing Write after a word starts at the next one.
   const n = pack.words.length || 1;
   st.pos = Number.isInteger(st.pos) ? ((st.pos % n) + n) % n : 0;
-  // st.at is the item at st.pos. If the list on GitHub changes order, find it again.
-  if (MODE === "path" && st.at && pack.byHanzi[st.at] && pack.words[st.pos].hanzi !== st.at) st.pos = pack.words.indexOf(pack.byHanzi[st.at]);
   let cur = st.pos;
+  // The item after i. After the last one, a new random round starts.
+  const advance = i => {
+    if (i + 1 < n) return i + 1;
+    st.order = mixOrder(pack);
+    pack.words = st.order.map(h => pack.byHanzi[h]);
+    return 0;
+  };
   const pick = () => MODE === "path" ? pack.words[cur] : nextWord(st, pack);
   let w = single || pick();
   saveState();
@@ -420,12 +451,12 @@ if (!pack.words.length && !single) {
     if (a.startsWith("done:")) {
       const h = a.slice(5);
       st.done[h] = (st.done[h] || 0) + 1;
-      if (MODE === "path" && w !== single && pack.words[cur] && pack.words[cur].hanzi === h) st.pos = (cur + 1) % n;
+      if (MODE === "path" && w !== single && pack.words[cur] && pack.words[cur].hanzi === h) st.pos = advance(cur);
       saveState();
     } else if (a === "next") {
       if (!pack.words.length) return;
       // After a single word, Next goes back to your place in the list.
-      if (MODE === "path" && w !== single) { cur = st.pos === cur ? (cur + 1) % n : st.pos; st.pos = cur; }
+      if (MODE === "path" && w !== single) { cur = st.pos === cur ? advance(cur) : st.pos; st.pos = cur; }
       w = pick();
       saveState();
       await wv.loadHTML(await pageFor(w));
