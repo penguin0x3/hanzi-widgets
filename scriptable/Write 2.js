@@ -152,19 +152,13 @@ function pageHTML(w, lib, strokes, levelName) {
   const chars = hanOnly(w.hanzi).filter(c => strokes[c]);
   const meaning = w.short || (w.senses || [])[0] || "";
   const body = chars.length ? `
-<div class="chars" id="chips"></div>
+<div class="main">
 <div class="round"><span class="label" id="roundLabel"></span><div class="dots" id="dots"></div></div>
-<div class="pad">
-  <svg class="grid" viewBox="0 0 100 100" preserveAspectRatio="none">
-    <g stroke="var(--line)" stroke-width="0.5" stroke-dasharray="2,2" fill="none">
-      <line x1="0" y1="0" x2="100" y2="100"/><line x1="100" y1="0" x2="0" y2="100"/>
-      <line x1="50" y1="0" x2="50" y2="100"/><line x1="0" y1="50" x2="100" y2="50"/>
-    </g>
-  </svg>
-  <div id="target"></div>
-</div>
-<div class="msg" id="msg"></div>` : `
-<div class="msg">No stroke data for this word yet. Write needs internet the first time it shows a character. Tap Next word.</div>`;
+<div class="pads" id="pads"></div>
+<div class="msg" id="msg"></div>
+<div class="tip" id="tip">Turn your phone sideways for bigger boxes.</div>
+</div>` : `
+<div class="main"><div class="msg">No stroke data for this word yet. Write needs internet the first time it shows a character. Tap Next word.</div></div>`;
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
@@ -179,19 +173,23 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 .pinyin { font-size:26px; color:var(--red); font-weight:600; }
 .play { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:20px; padding:6px 14px; font-size:15px; }
 .mean { color:var(--grey); font-size:18px; margin-top:2px; }
-.chars { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
-.chip { min-width:44px; height:44px; border-radius:12px; border:1px solid var(--line); background:var(--card);
-  display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--grey); }
-.chip.now { border:2px solid var(--ink); color:var(--ink); }
-.chip.done { color:var(--ok); border-color:var(--ok); }
 .round { margin-top:18px; display:flex; align-items:center; justify-content:space-between; }
 .dots { display:flex; gap:6px; } .dot { width:28px; height:6px; border-radius:3px; background:var(--line); }
 .dot.on { background:var(--ink); } .dot.ok { background:var(--ok); }
 .label { font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--grey); font-weight:600; }
-.pad { margin:10px auto 0; width:100%; max-width:340px; aspect-ratio:1; background:var(--card); border:1px solid var(--line);
-  border-radius:16px; position:relative; touch-action:none; }
+.pads { margin-top:10px; display:flex; justify-content:center; gap:8px; }
+.pad { flex:none; background:var(--card); border:1px solid var(--line); border-radius:14px; position:relative; touch-action:none; }
+.pad.on { border:2px solid var(--ink); }
 .pad svg.grid { position:absolute; inset:0; width:100%; height:100%; }
-#target { position:absolute; inset:0; }
+.pad .tg { position:absolute; inset:0; }
+.tip { display:none; text-align:center; font-size:14px; color:var(--grey); margin-top:4px; }
+/* Sideways: word on the left, writing boxes on the right */
+@media (orientation: landscape) {
+  body { padding:12px 24px 80px; display:grid; grid-template-columns:200px 1fr; column-gap:20px; align-items:start; }
+  .head { grid-column:1; } .main { grid-column:2; }
+  .round { margin-top:0; }
+  .bar { padding:8px 24px 12px; }
+}
 .msg { text-align:center; min-height:24px; margin-top:12px; color:var(--grey); }
 .msg.bad { color:var(--red); } .msg.good { color:var(--ok); font-weight:600; }
 .bar { position:fixed; left:0; right:0; bottom:0; padding:12px 20px 30px; background:var(--bg); border-top:1px solid var(--line);
@@ -200,9 +198,11 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 .bar button.main { background:var(--ink); color:var(--bg); border-color:var(--ink); }
 .bar button[disabled] { opacity:.4; }
 </style></head><body>
+<div class="head">
 <div class="top"><span>Write</span>${levelName ? `<span class="lv">${esc(levelName)}</span>` : ""}</div>
 <div class="word"><span class="pinyin">${esc(w.pinyin)}</span><button class="play" onclick="say(${esc(JSON.stringify(w.hanzi))})">Play</button></div>
 <div class="mean">${esc(meaning)}</div>
+</div>
 ${body}
 <div class="bar">
   <button id="hint" ${chars.length ? "" : "disabled"}>Hint</button>
@@ -243,63 +243,87 @@ function say(t) { var now = Date.now(); if (now - lastSay < 400) return; lastSay
 function act(a) { location.href = "hanzi://" + encodeURIComponent(a); }
 
 var WORD = ${forScript(w.hanzi)}, CHARS = ${forScript(chars)}, DATA = ${forScript(strokes)}, ROUNDS = ${ROUNDS};
-var ci = 0, round = 1, writer = null, finished = false;
+// All characters of the word sit in one row. Each round you write the whole word:
+// rounds 1-2 trace over the outline, the last round is from memory.
+var ci = 0, round = 1, writers = [], finished = false, size = 0;
+var GRID = '<svg class="grid" viewBox="0 0 100 100" preserveAspectRatio="none"><g stroke="var(--line)" stroke-width="0.5" stroke-dasharray="2,2" fill="none">' +
+  '<line x1="0" y1="0" x2="100" y2="100"/><line x1="100" y1="0" x2="0" y2="100"/><line x1="50" y1="0" x2="50" y2="100"/><line x1="0" y1="50" x2="100" y2="50"/></g></svg>';
 function el(id) { return document.getElementById(id); }
 function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
 function note(text, kind) { var m = el("msg"); if (m) { m.className = "msg" + (kind ? " " + kind : ""); m.textContent = text; } }
+// Box size: one character keeps the big box; longer words share the width.
+// It also fits the height, so sideways the boxes grow and the page does not scroll.
+function padSize() {
+  var n = CHARS.length, gap = 8, w = el("pads").clientWidth || 340;
+  var byWidth = Math.floor((w - gap * (n - 1)) / n);
+  var byHeight = Math.floor(window.innerHeight - el("pads").getBoundingClientRect().top - 150);
+  return Math.max(80, Math.min(340, byWidth, Math.max(110, byHeight)));
+}
 function draw() {
-  el("chips").innerHTML = CHARS.map(function (c, i) {
-    var show = i < ci || finished || (i === ci && round < ROUNDS);
-    return '<div class="chip ' + (i < ci || finished ? "done" : i === ci ? "now" : "") + '">' + (show ? c : "?") + "</div>";
-  }).join("");
   var dots = "";
   for (var r = 1; r <= ROUNDS; r++) dots += '<div class="dot ' + (finished || r < round ? "ok" : r === round ? "on" : "") + '"></div>';
   el("dots").innerHTML = dots;
-  el("roundLabel").textContent = finished ? "Done" :
-    "Round " + round + " of " + ROUNDS + " · " + (round < ROUNDS ? "Trace" : "From memory") +
-    (CHARS.length > 1 ? " · character " + (ci + 1) + " of " + CHARS.length : "");
+  el("roundLabel").textContent = finished ? "Done" : "Round " + round + " of " + ROUNDS + " · " + (round < ROUNDS ? "Trace" : "From memory");
+  for (var i = 0; i < CHARS.length; i++) el("p" + i).className = "pad" + (!finished && i === ci ? " on" : "");
+  el("tip").style.display = CHARS.length >= 3 && !finished && window.innerHeight > window.innerWidth ? "block" : "none";
 }
-function start() {
-  draw();
-  el("target").innerHTML = "";
-  var size = el("target").clientWidth || 300;
-  writer = HanziWriter.create("target", CHARS[ci], {
-    width: size, height: size, padding: 18,
-    showCharacter: false, showOutline: round < ROUNDS,
-    strokeColor: css("--ink"), outlineColor: css("--line"), highlightColor: css("--red"), drawingColor: css("--ink"),
-    drawingWidth: 22, strokeAnimationSpeed: 1.2, delayBetweenStrokes: 200,
-    charDataLoader: function (c, onLoad, onError) { if (DATA[c]) onLoad(DATA[c]); else onError(); }
+// Make the boxes for this round. Characters already written in this round stay drawn.
+function build() {
+  size = padSize();
+  el("pads").innerHTML = CHARS.map(function (c, i) {
+    return '<div class="pad" id="p' + i + '" style="width:' + size + 'px;height:' + size + 'px">' + GRID + '<div class="tg" id="t' + i + '"></div></div>';
+  }).join("");
+  writers = CHARS.map(function (c, i) {
+    return HanziWriter.create("t" + i, c, {
+      width: size, height: size, padding: Math.round(size * 0.06),
+      showCharacter: finished || i < ci, showOutline: round < ROUNDS && !finished,
+      strokeColor: css("--ink"), outlineColor: css("--line"), highlightColor: css("--red"), drawingColor: css("--ink"),
+      drawingWidth: Math.max(10, Math.round(size * 0.065)), strokeAnimationSpeed: 1.2, delayBetweenStrokes: 200,
+      charDataLoader: function (ch, onLoad, onError) { if (DATA[ch]) onLoad(DATA[ch]); else onError(); }
+    });
   });
+  draw();
+  if (!finished) quizChar();
+}
+function quizChar() {
+  draw();
   note(round < ROUNDS ? "Write each stroke with your finger." : "Now without the outline.");
-  writer.quiz({
+  writers[ci].quiz({
     showHintAfterMisses: 3,
     onMistake: function () { note("Not this stroke. Try again.", "bad"); },
     onCorrectStroke: function (d) { note(d.strokesRemaining ? d.strokesRemaining + (d.strokesRemaining === 1 ? " stroke left" : " strokes left") : ""); },
     onComplete: function () {
       note("Good!", "good");
       setTimeout(function () {
-        if (round < ROUNDS) round++;
-        else { round = 1; ci++; }
-        if (ci >= CHARS.length) {
-          finished = true; draw();
-          writer.showCharacter();
-          note("Done! " + WORD, "good");
-          act("done:" + WORD);
-          return;
-        }
-        start();
-      }, 700);
+        if (ci < CHARS.length - 1) { ci++; quizChar(); return; }
+        if (round < ROUNDS) { round++; ci = 0; build(); return; }
+        finished = true; draw();
+        writers.forEach(function (w) { w.showCharacter(); });
+        note("Done! " + WORD, "good");
+        act("done:" + WORD);
+      }, 600);
     }
   });
 }
 if (CHARS.length) {
-  el("hint").onclick = function () { if (writer && !finished) { writer.showOutline(); note("Outline shown for this round."); } };
+  el("hint").onclick = function () { if (!finished) { writers[ci].showOutline(); note("Outline shown for this round."); } };
   el("show").onclick = function () {
-    if (!writer || finished) return;
-    writer.cancelQuiz();
-    writer.animateCharacter({ onComplete: function () { writer.hideCharacter(); start(); } });
+    if (finished) return;
+    var w = writers[ci];
+    w.cancelQuiz();
+    w.animateCharacter({ onComplete: function () { w.hideCharacter(); quizChar(); } });
   };
-  start();
+  // Turning the phone: make the boxes again at the new size and start the current character again.
+  var resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      if (padSize() === size) { draw(); return; }
+      writers.forEach(function (w) { try { w.cancelQuiz(); } catch (e) {} });
+      build();
+    }, 250);
+  });
+  build();
 }
 </script>
 </body></html>`;

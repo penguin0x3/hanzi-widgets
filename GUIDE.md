@@ -48,8 +48,10 @@ Tap the widget to open the radical page: each example character with a common wo
 
 Run `Write` in Scriptable. It starts with 20 radicals, then about 45 of the simplest words (我, 你, 谢谢, 没有...), always in the same order. It remembers where you stopped. `Write 2` works the same way but picks random words from your HSK levels.
 
-1. **Rounds 1 and 2:** trace each stroke over the faint character, in the right order.
-2. **Round 3:** write the character from memory on the empty grid.
+1. **Rounds 1 and 2:** trace each stroke over the faint characters, in the right order.
+2. **Round 3:** write the word from memory on the empty grid.
+
+All characters of a word sit side by side, and each round you write the whole word, so you see it as one piece. Words with 3 or more characters get smaller boxes: turn your phone sideways to make them bigger.
 
 A wrong stroke turns red. After 3 misses, the right stroke is shown. **Hint** shows the faint character again, **Show strokes** plays the stroke order, **Next word** skips to another word. In `Write 2`, words you have not written yet come first.
 
