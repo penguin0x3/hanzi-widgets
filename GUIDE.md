@@ -53,7 +53,7 @@ Run `Write` in Scriptable. It starts with 20 radicals, then about 45 of the simp
 
 All characters of a word sit side by side, and each round you write the whole word, so you see it as one piece. Words with 3 or more characters get smaller boxes: turn your phone sideways to make them bigger.
 
-A wrong stroke turns red. After 3 misses, the right stroke is shown. **Hint** shows the faint character again, **Show strokes** plays the stroke order, **Next word** skips to another word. In `Write 2`, words you have not written yet come first.
+A wrong stroke turns red. After 3 misses, the right stroke is shown. **Hint** shows the faint character for 3 seconds in round 3 (you can keep writing), **Show strokes** plays the stroke order of the whole word, and **Next word** skips to another word. Tap any other box to see the stroke order of that character. In `Write 2`, words you have not written yet come first.
 
 Write needs internet the first time it shows a character. After that, the characters you wrote also work offline. It does not change your widgets, settings or progress.
 

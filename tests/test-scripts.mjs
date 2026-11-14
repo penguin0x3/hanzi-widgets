@@ -293,6 +293,9 @@ check("Write page has the grid, Hint, Show strokes and Play", wp.includes('class
 check("Write page has 3 rounds and the last round has no outline", wp.includes("ROUNDS = 3") && wp.includes("showOutline: round < ROUNDS && !finished"));
 check("Write page puts every character of the word in one row", wp.includes('id="pads"') && wp.includes("CHARS.map(function (c, i)") && wp.includes("(w - gap * (n - 1)) / n"));
 check("Write page asks to turn the phone for words of 3+ characters", wp.includes("CHARS.length >= 3") && wp.includes("Turn your phone sideways"));
+check("tapping another box plays its stroke order", wp.includes("function tapPad(i)") && wp.includes('.onclick = function () { tapPad(i); }'));
+check("Show strokes plays the whole word", wp.includes("(function play(i)") && wp.includes("play(i + 1)"));
+check("Hint in the last round shows the outline for 3 seconds", wp.includes("w.hideOutline(); }, 3000)") && wp.includes("Outline shown for 3 seconds."));
 check("Write page grows the boxes when the phone turns", wp.includes('addEventListener("resize"') && wp.includes("@media (orientation: landscape)"));
 check("Write saves a written word in hanzi-write.json", read(dir, "hanzi-write.json").done["谢谢"] === 1);
 check("Next word loads another word", o.html.length === 2 && !o.html[1].includes("xièxie"));
@@ -303,6 +306,7 @@ check("Write does not change shared files", ["hsk1-2.json", "hanzi-settings.json
 check("Write does not add files that show up as scripts", fs.readdirSync(dir).filter(f => f.endsWith(".js")).length === 0);
 o = await run("Write 2.js", { dir, query: { word: "谢谢" }, offline: true });
 check("a word written before works offline", o.html.length === 1 && o.html[0].includes('"src":"谢.json"'));
+for (const c of "学生") fs.rmSync(path.join(dir, "hanzi-write", "c" + c.codePointAt(0).toString(16) + ".json"), { force: true }); // "Next word" may have saved them
 o = await run("Write 2.js", { dir, query: { word: "学生" }, offline: true });
 check("a new word offline says it needs internet", o.html.length === 1 && o.html[0].includes("needs internet") && o.html[0].includes('id="hint" disabled'));
 o = await run("Write 2.js", { dir: (() => { const d = newDir(); fs.copyFileSync(path.join(ROOT, "data", "hsk1-2.json"), path.join(d, "hsk1-2.json")); return d; })(), offline: true });

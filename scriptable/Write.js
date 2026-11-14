@@ -282,8 +282,18 @@ function build() {
       charDataLoader: function (ch, onLoad, onError) { if (DATA[ch]) onLoad(DATA[ch]); else onError(); }
     });
   });
+  CHARS.forEach(function (c, i) { el("p" + i).onclick = function () { tapPad(i); }; });
   draw();
   if (!finished) quizChar();
+}
+// After a stroke animation, put a box back as it was: drawn if written this round.
+function restore(i) { if (finished || i < ci) writers[i].showCharacter(); else writers[i].hideCharacter(); }
+// Tap a box that is not the one you are writing: play its stroke order.
+var playing = {};
+function tapPad(i) {
+  if ((i === ci && !finished) || playing[i]) return;
+  playing[i] = true;
+  writers[i].animateCharacter({ onComplete: function () { playing[i] = false; restore(i); } });
 }
 function quizChar() {
   draw();
@@ -306,12 +316,33 @@ function quizChar() {
   });
 }
 if (CHARS.length) {
-  el("hint").onclick = function () { if (!finished) { writers[ci].showOutline(); note("Outline shown for this round."); } };
-  el("show").onclick = function () {
+  // Hint: in the last round, show the outline for 3 seconds. You can keep writing.
+  var hintTimer = null;
+  el("hint").onclick = function () {
     if (finished) return;
+    if (round < ROUNDS) { note("The outline is already shown. Follow it stroke by stroke."); return; }
     var w = writers[ci];
-    w.cancelQuiz();
-    w.animateCharacter({ onComplete: function () { w.hideCharacter(); quizChar(); } });
+    w.showOutline();
+    note("Outline shown for 3 seconds.");
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(function () { w.hideOutline(); }, 3000);
+  };
+  // Show strokes: play the stroke order of the whole word, box by box, then go on writing.
+  var showing = false;
+  el("show").onclick = function () {
+    if (finished || showing) return;
+    showing = true;
+    writers[ci].cancelQuiz();
+    note("Watch the stroke order.");
+    (function play(i) {
+      if (i >= CHARS.length) { showing = false; quizChar(); return; }
+      playing[i] = true;
+      writers[i].animateCharacter({ onComplete: function () {
+        playing[i] = false;
+        if (i === ci) writers[i].hideCharacter(); else restore(i);
+        setTimeout(function () { play(i + 1); }, 250);
+      } });
+    })(0);
   };
   // Turning the phone: make the boxes again at the new size and start the current character again.
   var resizeTimer = null;
