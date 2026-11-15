@@ -24,6 +24,7 @@ const DATA_URL = "https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0.1/";
 const LEVELS = ["hsk1-2", "hsk3", "hsk4", "hsk5"];
 const LEVEL_NAMES = { "hsk1-2": "HSK 1-2", hsk3: "HSK 3", hsk4: "HSK 4", hsk5: "HSK 5", mine: "My words" };
 const ROUNDS = 3; // rounds per character; the last round has no outline
+const THEME_LABEL = { auto: "Auto", light: "Light", dark: "Dark" };
 
 const fm = FileManager.iCloud();
 const dir = fm.documentsDirectory();
@@ -32,6 +33,8 @@ const CACHE = path("hanzi-write"); // a folder, so these files do not show up as
 const LIB = fm.joinPath(CACHE, "hanzi-writer.min.js");
 const WRITE = path(MODE === "path" ? "hanzi-write-path.json" : "hanzi-write.json");
 const PATH_FILE = fm.joinPath(CACHE, "write-path.txt");
+const THEME_FILE = fm.joinPath(CACHE, "theme.txt"); // "auto", "light" or "dark"
+const THEMES = ["auto", "light", "dark"];
 
 // ---------- files (read only for shared files) ----------
 async function readText(p) {
@@ -173,7 +176,7 @@ async function getStrokes(c) {
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const forScript = v => JSON.stringify(v).replace(/</g, "\\u003c");
 
-function pageHTML(w, lib, strokes, levelName) {
+function pageHTML(w, lib, strokes, levelName, canBack, theme) {
   const chars = hanOnly(w.hanzi).filter(c => strokes[c]);
   const meaning = w.short || (w.senses || [])[0] || "";
   const body = chars.length ? `
@@ -184,16 +187,19 @@ function pageHTML(w, lib, strokes, levelName) {
 <div class="tip" id="tip">Turn your phone sideways for bigger boxes.</div>
 </div>` : `
 <div class="main"><div class="msg">Could not load the strokes for ${esc(w.hanzi)}. Check your internet and try again. A few rare characters have no stroke data.</div></div>`;
-  return `<!doctype html><html><head><meta charset="utf-8">
+  return `<!doctype html><html data-theme="${theme}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
 :root { --bg:#EEF7E8; --ink:#000000; --accent:#108652; --grey:#5F665F; --line:#D3E4CA; --card:#FFFFFF; --soft:#97DF67; --on:#FFFFFF; --bad:#C0392B; --ok:#108652; }
-@media (prefers-color-scheme: dark) { :root { --bg:#0E1F16; --ink:#FFFFFF; --accent:#97DF67; --grey:#9DA39D; --line:#2F4A39; --card:#16291E; --soft:#108652; --on:#000000; --bad:#FF7A6B; --ok:#97DF67; } }
+@media (prefers-color-scheme: dark) { :root[data-theme="auto"] { --bg:#0E1F16; --ink:#FFFFFF; --accent:#97DF67; --grey:#9DA39D; --line:#2F4A39; --card:#16291E; --soft:#108652; --on:#000000; --bad:#FF7A6B; --ok:#97DF67; } }
+:root[data-theme="dark"] { --bg:#0E1F16; --ink:#FFFFFF; --accent:#97DF67; --grey:#9DA39D; --line:#2F4A39; --card:#16291E; --soft:#108652; --on:#000000; --bad:#FF7A6B; --ok:#97DF67; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink);
   font: 17px/1.45 -apple-system, "PingFang SC", sans-serif; -webkit-user-select:none; user-select:none; }
 .top { display:flex; justify-content:space-between; align-items:center; color:var(--grey); font-size:14px; }
 .lv { border:1px solid var(--line); border-radius:10px; padding:1px 8px; }
+.right { display:flex; gap:8px; align-items:center; }
+.theme { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:10px; padding:2px 10px; font-size:13px; }
 .word { margin-top:14px; display:flex; align-items:center; gap:12px; }
 .pinyin { font-size:26px; color:var(--accent); font-weight:600; }
 .play { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:20px; padding:6px 14px; font-size:15px; }
@@ -217,19 +223,20 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 }
 .msg { text-align:center; min-height:24px; margin-top:12px; color:var(--grey); }
 .msg.bad { color:var(--bad); } .msg.good { color:var(--ok); font-weight:600; }
-.bar { position:fixed; left:0; right:0; bottom:0; padding:12px 20px 30px; background:var(--bg); border-top:1px solid var(--line);
-  display:flex; gap:10px; }
-.bar button { flex:1; font-size:16px; padding:13px 6px; border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
+.bar { position:fixed; left:0; right:0; bottom:0; padding:12px 16px 30px; background:var(--bg); border-top:1px solid var(--line);
+  display:flex; gap:8px; }
+.bar button { flex:1; font-size:15px; padding:13px 4px; border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
 .bar button.main { background:var(--accent); color:var(--on); border-color:var(--accent); }
 .bar button[disabled] { opacity:.4; }
 </style></head><body>
 <div class="head">
-<div class="top"><span>Write</span>${levelName ? `<span class="lv">${esc(levelName)}</span>` : ""}</div>
+<div class="top"><span>Write</span><span class="right">${levelName ? `<span class="lv">${esc(levelName)}</span>` : ""}<button class="theme" id="theme" onclick="nextTheme()">${THEME_LABEL[theme]}</button></span></div>
 <div class="word"><span class="pinyin">${esc(w.pinyin)}</span><button class="play" onclick="say(${esc(JSON.stringify(w.hanzi))})">Listen</button></div>
 <div class="mean">${esc(meaning)}</div>
 </div>
 ${body}
 <div class="bar">
+  <button id="back" onclick="act('back')" ${canBack ? "" : "disabled"}>Back</button>
   <button id="hint" ${chars.length ? "" : "disabled"}>Hint</button>
   <button id="show" ${chars.length ? "" : "disabled"}>Show strokes</button>
   <button id="next" class="main" onclick="act('next')">Next word</button>
@@ -266,11 +273,23 @@ function voice(t) {
 }
 function say(t) { var now = Date.now(); if (now - lastSay < 400) return; lastSay = now; voice(t); }
 function act(a) { location.href = "hanzi://" + encodeURIComponent(a); }
+// Theme button: Auto (follows the iPhone) -> Light -> Dark. The colors change at once,
+// the writing goes on, and Write remembers the choice.
+var THEMES = ${forScript(THEMES)}, LABELS = ${forScript(THEME_LABEL)};
+function nextTheme() {
+  var root = document.documentElement;
+  var t = THEMES[(THEMES.indexOf(root.getAttribute("data-theme")) + 1) % THEMES.length];
+  root.setAttribute("data-theme", t);
+  el("theme").textContent = LABELS[t];
+  if (typeof recolor === "function") recolor();
+  act("theme:" + t);
+}
 
 var WORD = ${forScript(w.hanzi)}, CHARS = ${forScript(chars)}, DATA = ${forScript(strokes)}, ROUNDS = ${ROUNDS};
 // All characters of the word sit in one row. Each round you write the whole word:
 // rounds 1-2 trace over the outline, the last round is from memory.
 var ci = 0, round = 1, writers = [], finished = false, size = 0;
+var showing = false, showRun = 0, afterShow = null, charDone = false; // Show strokes is playing; showRun stops an old run after the boxes are made again
 var GRID = '<svg class="grid" viewBox="0 0 100 100" preserveAspectRatio="none"><g stroke="var(--line)" stroke-width="0.5" stroke-dasharray="2,2" fill="none">' +
   '<line x1="0" y1="0" x2="100" y2="100"/><line x1="100" y1="0" x2="0" y2="100"/><line x1="50" y1="0" x2="50" y2="100"/><line x1="0" y1="50" x2="100" y2="50"/></g></svg>';
 function el(id) { return document.getElementById(id); }
@@ -294,6 +313,7 @@ function draw() {
 }
 // Make the boxes for this round. Characters already written in this round stay drawn.
 function build() {
+  showing = false; showRun++; afterShow = null;
   size = padSize();
   el("pads").innerHTML = CHARS.map(function (c, i) {
     return '<div class="pad" id="p' + i + '" style="width:' + size + 'px;height:' + size + 'px">' + GRID + '<div class="tg" id="t' + i + '"></div></div>';
@@ -311,8 +331,14 @@ function build() {
   draw();
   if (!finished) quizChar();
 }
+// New theme: make the boxes again with the new colors. Characters already written stay;
+// the character you are writing starts again from its first stroke.
+function recolor() {
+  writers.forEach(function (w) { try { w.cancelQuiz(); } catch (e) {} });
+  build();
+}
 // After a stroke animation, put a box back as it was: drawn if written this round.
-function restore(i) { if (finished || i < ci) writers[i].showCharacter(); else writers[i].hideCharacter(); }
+function restore(i) { if (finished || i < ci || (i === ci && charDone)) writers[i].showCharacter(); else writers[i].hideCharacter(); }
 // Tap a box that is not the one you are writing: play its stroke order.
 var playing = {};
 function tapPad(i) {
@@ -321,6 +347,7 @@ function tapPad(i) {
   writers[i].animateCharacter({ onComplete: function () { playing[i] = false; restore(i); } });
 }
 function quizChar() {
+  charDone = false;
   draw();
   note(round < ROUNDS ? "Write each stroke with your finger." : "Now without the outline.");
   writers[ci].quiz({
@@ -328,15 +355,23 @@ function quizChar() {
     onMistake: function () { note("Not this stroke. Try again.", "bad"); },
     onCorrectStroke: function (d) { note(d.strokesRemaining ? d.strokesRemaining + (d.strokesRemaining === 1 ? " stroke left" : " strokes left") : ""); },
     onComplete: function () {
+      charDone = true;
       note("Good!", "good");
+      var run = showRun;
       setTimeout(function () {
+        if (run !== showRun) return; // the boxes were made again (new theme or turned phone)
+        // If Show strokes is playing, go on when it ends.
+        if (showing) { afterShow = goOn; return; }
+        goOn();
+      }, 600);
+      function goOn() {
         if (ci < CHARS.length - 1) { ci++; quizChar(); return; }
         if (round < ROUNDS) { round++; ci = 0; build(); return; }
         finished = true; draw();
         writers.forEach(function (w) { w.showCharacter(); });
         note("Done! " + WORD, "good");
         act("done:" + WORD);
-      }, 600);
+      }
     }
   });
 }
@@ -353,18 +388,27 @@ if (CHARS.length) {
     hintTimer = setTimeout(function () { w.hideOutline(); }, 3000);
   };
   // Show strokes: play the stroke order of the whole word, box by box, then go on writing.
-  var showing = false;
+  // It works in every round, also after the word is done.
   el("show").onclick = function () {
-    if (finished || showing) return;
+    if (showing) return;
     showing = true;
-    writers[ci].cancelQuiz();
+    var run = showRun;
+    if (!finished && !charDone) { try { writers[ci].cancelQuiz(); } catch (e) {} }
+    clearTimeout(hintTimer);
     note("Watch the stroke order.");
     (function play(i) {
-      if (i >= CHARS.length) { showing = false; quizChar(); return; }
+      if (run !== showRun) return; // the boxes were made again: this run is over
+      if (i >= CHARS.length) {
+        showing = false;
+        var go = afterShow; afterShow = null;
+        if (go) go(); else if (finished) note("Done! " + WORD, "good"); else quizChar();
+        return;
+      }
       playing[i] = true;
       writers[i].animateCharacter({ onComplete: function () {
         playing[i] = false;
-        if (i === ci) writers[i].hideCharacter(); else restore(i);
+        if (run !== showRun) return;
+        restore(i);
         setTimeout(function () { play(i + 1); }, 250);
       } });
     })(0);
@@ -400,6 +444,8 @@ const st = await readJSON(WRITE, {});
 st.done = st.done || {};
 st.deck = Array.isArray(st.deck) ? st.deck : [];
 const saveState = () => save(WRITE, JSON.stringify(st));
+let theme = String((await readText(THEME_FILE)) || "").trim();
+if (!THEMES.includes(theme)) theme = "auto";
 
 const pack = MODE === "path" ? await loadPath() : await loadWords(levels);
 // Path: st.order is this round's random order. A new one is made when the round ends
@@ -428,7 +474,7 @@ if (!pack.words.length && !single) {
     const strokes = {};
     for (const c of hanOnly(w.hanzi)) { const d = await getStrokes(c); if (d) strokes[c] = d; }
     const tag = w.radical ? "Radical" : MODE === "path" || w.level === "one" ? "" : w.level === "mine" ? LEVEL_NAMES.mine : levelName;
-    return pageHTML(w, lib, strokes, tag);
+    return pageHTML(w, lib, strokes, tag, at > 0, theme);
   }
   // Path: st.pos is the item to show next time. Finishing a word moves it on,
   // so closing Write after a word starts at the next one.
@@ -444,6 +490,10 @@ if (!pack.words.length && !single) {
   };
   const pick = () => MODE === "path" ? pack.words[cur] : nextWord(st, pack);
   let w = single || pick();
+  // Words seen since Write opened, so Back can go to the one before.
+  // at is the word on screen. Next after Back goes forward again before it picks a new word.
+  const seen = [w];
+  let at = 0;
   saveState();
   const wv = new WebView();
   let busy = Promise.resolve();
@@ -454,12 +504,21 @@ if (!pack.words.length && !single) {
       if (MODE === "path" && w !== single && pack.words[cur] && pack.words[cur].hanzi === h) st.pos = advance(cur);
       saveState();
     } else if (a === "next") {
+      if (at < seen.length - 1) { w = seen[++at]; await wv.loadHTML(await pageFor(w)); return; }
       if (!pack.words.length) return;
       // After a single word, Next goes back to your place in the list.
       if (MODE === "path" && w !== single) { cur = st.pos === cur ? advance(cur) : st.pos; st.pos = cur; }
       w = pick();
+      seen.push(w); at = seen.length - 1;
       saveState();
       await wv.loadHTML(await pageFor(w));
+    } else if (a === "back") {
+      if (at === 0) return;
+      w = seen[--at];
+      await wv.loadHTML(await pageFor(w));
+    } else if (a.startsWith("theme:")) {
+      const t = a.slice(6);
+      if (THEMES.includes(t)) { theme = t; save(THEME_FILE, t); }
     } else if (a.startsWith("speak:")) {
       Speech.speak(a.slice(6));
     }

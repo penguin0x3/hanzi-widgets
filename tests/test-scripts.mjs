@@ -315,6 +315,18 @@ check("Write ?word= shows that word, even if it is not in the list", o.html[0].i
 check("a single word does not move your place in the list", read(dir, "hanzi-write-path.json").pos === posBefore);
 check("Next after a single word goes back to your place", o.html[1].includes(firstChars(order[posBefore])));
 check("Write page says Listen", o.html[0].includes(">Listen</button>"));
+o = await run("Write.js", { dir, web: ["next", "next", "back", "back", "next", "next", "next"] });
+const posB = read(dir, "hanzi-write-path.json").pos;
+const pageWord = h => (h.match(/var WORD = (".*?")/) || [])[1];
+check("Back is off on the first word and on after Next", /id="back"[^>]*disabled/.test(o.html[0]) && !/id="back"[^>]*disabled/.test(o.html[1]));
+check("Back goes to the words before, Next goes forward again", pageWord(o.html[3]) === pageWord(o.html[1]) && pageWord(o.html[4]) === pageWord(o.html[0]) && pageWord(o.html[5]) === pageWord(o.html[1]) && pageWord(o.html[6]) === pageWord(o.html[2]));
+check("Back and Next through seen words do not move your place", read(dir, "hanzi-write-path.json").pos === posB && pageWord(o.html[7]) !== pageWord(o.html[2]));
+check("theme is Auto at first", o.html[0].includes('data-theme="auto"') && o.html[0].includes(">Auto</button>"));
+o = await run("Write.js", { dir, web: ["theme:dark", "next"] });
+check("theme choice is saved and used on the next page", o.html[1].includes('data-theme="dark"') && fs.readFileSync(path.join(dir, "hanzi-write", "theme.txt"), "utf8") === "dark");
+o = await run("Write.js", { dir, web: ["theme:pink"] });
+check("a wrong theme is ignored", o.html[0].includes('data-theme="dark"'));
+fs.writeFileSync(path.join(dir, "hanzi-write", "theme.txt"), "auto");
 o = await run("Write.js", { dir, offline: true });
 check("Write path works offline with the saved list", o.html.length === 1 && o.html[0].includes("CHARS = "));
 o = await run("Write.js", { dir: newDir(), offline: true });
