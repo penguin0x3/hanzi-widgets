@@ -73,6 +73,22 @@ async function myWords() {
 }
 const hanOnly = s => Array.from(s || "").filter(c => /\p{Script=Han}/u.test(c));
 
+// radicals.txt (the Radicals list, read only): radical -> its 3 example characters.
+// The saved copy in Scriptable, or GitHub when it is not there yet.
+async function loadRadicals() {
+  const t = (await readText(path("radicals.txt"))) || (await download(REPO + "scriptable/radicals.txt")) || "";
+  const out = {};
+  for (const l of t.split(/\r?\n/)) {
+    const line = l.trim();
+    if (!line || line.startsWith("#")) continue;
+    const p = line.split(/\s*\|\s*/);
+    if (!p[0]) continue;
+    out[p[0]] = (p[4] || "").split(";").map(e => e.trim().split(/\s+/)).filter(e => e[0] && hanOnly(e[0]).length)
+      .slice(0, 3).map(e => ({ hanzi: e[0], pinyin: e[1] || "", short: e.slice(2).join(" ") }));
+  }
+  return out;
+}
+
 async function loadWords(levels) {
   const words = [], byHanzi = {};
   const add = (w, lv) => {
@@ -176,7 +192,7 @@ async function getStrokes(c) {
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const forScript = v => JSON.stringify(v).replace(/</g, "\\u003c");
 
-function pageHTML(w, lib, strokes, levelName, canBack, theme) {
+function pageHTML(w, lib, strokes, levelName, canBack, theme, examples) {
   const chars = hanOnly(w.hanzi).filter(c => strokes[c]);
   const meaning = w.short || (w.senses || [])[0] || "";
   const body = chars.length ? `
@@ -204,6 +220,10 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 .pinyin { font-size:26px; color:var(--accent); font-weight:600; }
 .play { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:20px; padding:6px 14px; font-size:15px; }
 .mean { color:var(--grey); font-size:18px; margin-top:2px; }
+.ex { margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; color:var(--grey); font-size:14px; }
+.ex span { margin-right:2px; }
+.chip { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:16px; padding:3px 10px; font-size:17px; font-family:inherit; }
+.chip small { font-size:13px; color:var(--accent); }
 .round { margin-top:18px; display:flex; align-items:center; justify-content:space-between; }
 .dots { display:flex; gap:6px; } .dot { width:28px; height:6px; border-radius:3px; background:var(--line); }
 .dot.on { background:var(--ink); } .dot.ok { background:var(--soft); }
@@ -233,6 +253,7 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 <div class="top"><span>Write</span><span class="right">${levelName ? `<span class="lv">${esc(levelName)}</span>` : ""}<button class="theme" id="theme" onclick="nextTheme()">${THEME_LABEL[theme]}</button></span></div>
 <div class="word"><span class="pinyin">${esc(w.pinyin)}</span><button class="play" onclick="say(${esc(JSON.stringify(w.hanzi))})">Listen</button></div>
 <div class="mean">${esc(meaning)}</div>
+${(examples || []).length ? `<div class="ex"><span>Examples:</span>${examples.map(e => `<button class="chip" onclick="act(${esc(JSON.stringify("word:" + e.hanzi))})">${esc(e.hanzi)}${e.pinyin ? ` <small>${esc(e.pinyin)}</small>` : ""}</button>`).join("")}</div>` : ""}
 </div>
 ${body}
 <div class="bar">
@@ -470,11 +491,19 @@ if (!pack.words.length && !single) {
 } else if (!lib) {
   await info("Write", "Write needs the internet the first time, to get the stroke data. Connect and run Write again.");
 } else {
+  const rads = await loadRadicals();
+  // The 3 example characters of a radical: its group in write-path.txt, else radicals.txt.
+  function examplesFor(w) {
+    const g = (pack.groups || []).find(g => g[0] === w.hanzi && g.length > 1);
+    if (g) return g.slice(1).map(h => pack.byHanzi[h]);
+    return rads[w.hanzi] || [];
+  }
+  const isRadical = w => !!(w.radical || rads[w.hanzi]);
   async function pageFor(w) {
     const strokes = {};
     for (const c of hanOnly(w.hanzi)) { const d = await getStrokes(c); if (d) strokes[c] = d; }
-    const tag = w.radical ? "Radical" : MODE === "path" || w.level === "one" ? "" : w.level === "mine" ? LEVEL_NAMES.mine : levelName;
-    return pageHTML(w, lib, strokes, tag, at > 0, theme);
+    const tag = isRadical(w) ? "Radical" : MODE === "path" || w.level === "one" ? "" : w.level === "mine" ? LEVEL_NAMES.mine : levelName;
+    return pageHTML(w, lib, strokes, tag, at > 0, theme, isRadical(w) ? examplesFor(w) : []);
   }
   // Path: st.pos is the item to show next time. Finishing a word moves it on,
   // so closing Write after a word starts at the next one.
@@ -506,11 +535,22 @@ if (!pack.words.length && !single) {
     } else if (a === "next") {
       if (at < seen.length - 1) { w = seen[++at]; await wv.loadHTML(await pageFor(w)); return; }
       if (!pack.words.length) return;
-      // After a single word, Next goes back to your place in the list.
-      if (MODE === "path" && w !== single) { cur = st.pos === cur ? advance(cur) : st.pos; st.pos = cur; }
+      // After a single word or an example character, Next goes back to your place in the list.
+      if (MODE === "path") {
+        if (w !== single && !w.extra) { cur = st.pos === cur ? advance(cur) : st.pos; st.pos = cur; }
+        else cur = st.pos;
+      }
       w = pick();
       seen.push(w); at = seen.length - 1;
       saveState();
+      await wv.loadHTML(await pageFor(w));
+    } else if (a.startsWith("word:")) {
+      // An example character of a radical: write it now. Back goes to the radical again.
+      const h = a.slice(5);
+      const e = examplesFor(w).find(x => x.hanzi === h);
+      if (!e) return;
+      w = Object.assign({ level: "one" }, pack.byHanzi[h] || e, { extra: true });
+      seen.length = at + 1; seen.push(w); at = seen.length - 1;
       await wv.loadHTML(await pageFor(w));
     } else if (a === "back") {
       if (at === 0) return;

@@ -327,6 +327,21 @@ check("theme choice is saved and used on the next page", o.html[1].includes('dat
 o = await run("Write.js", { dir, web: ["theme:pink"] });
 check("a wrong theme is ignored", o.html[0].includes('data-theme="dark"'));
 fs.writeFileSync(path.join(dir, "hanzi-write", "theme.txt"), "auto");
+// Radicals: a "Radical" tag and a row with its 3 example characters
+const radPos = order.findIndex(h => radSet.has(h));
+fs.writeFileSync(path.join(dir, "hanzi-write-path.json"), JSON.stringify(Object.assign(read(dir, "hanzi-write-path.json"), { pos: radPos })));
+const grp = order.slice(radPos + 1, radPos + 4);
+o = await run("Write.js", { dir, web: ["word:" + grp[1], "back", "word:" + grp[0], "next", "word:不是例子"] });
+check("a radical shows its 3 characters from write-path.txt", o.html[0].includes("Examples:") && grp.every(h => o.html[0].includes('&quot;word:' + h + '&quot;')));
+check("tapping an example opens it, Back goes to the radical", pageWord(o.html[1]) === JSON.stringify(grp[1]) && pageWord(o.html[2]) === JSON.stringify(order[radPos]) && /id="back"[^>]*disabled/.test(o.html[2]) && !/id="back"[^>]*disabled/.test(o.html[1]));
+check("a word that is not a radical has no example row", !o.html[1].includes("Examples:"));
+check("Next after an example goes back to your place", pageWord(o.html[4]) === JSON.stringify(order[radPos]) && read(dir, "hanzi-write-path.json").pos === radPos);
+check("a character that is not an example is ignored", o.html.length === 5);
+o = await run("Write.js", { dir, query: { word: "彳", pinyin: "chì", meaning: "Step" }, web: ["word:往"] });
+check("a radical from radicals.txt gets the tag and its 3 examples", o.html[0].includes('<span class="lv">Radical</span>') && ["很", "往", "得"].every(h => o.html[0].includes('&quot;word:' + h + '&quot;')) && o.html[0].includes("wǎng"));
+check("an example from radicals.txt opens with its pinyin and meaning", pageWord(o.html[1]) === '"往"' && o.html[1].includes("toward"));
+o = await run("Write 2.js", { dir: newDir(), query: { word: "氵" } });
+check("Write 2 also tags radicals", o.html[0].includes('<span class="lv">Radical</span>') && o.html[0].includes('&quot;word:河&quot;'));
 o = await run("Write.js", { dir, offline: true });
 check("Write path works offline with the saved list", o.html.length === 1 && o.html[0].includes("CHARS = "));
 o = await run("Write.js", { dir: newDir(), offline: true });
