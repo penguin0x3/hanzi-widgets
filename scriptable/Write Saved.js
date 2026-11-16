@@ -262,11 +262,10 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 .top { display:flex; justify-content:space-between; align-items:center; color:var(--grey); font-size:14px; }
 .lv { border:1px solid var(--line); border-radius:10px; padding:1px 8px; }
 .right { display:flex; gap:8px; align-items:center; }
-.save { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:10px; padding:2px 10px; font-size:13px; }
-.save.on { background:var(--accent); color:var(--on); border-color:var(--accent); }
-.word { margin-top:14px; display:flex; align-items:center; gap:12px; }
+.word { margin-top:14px; display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px; }
 .pinyin { font-size:26px; color:var(--accent); font-weight:600; }
 .play { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:20px; padding:6px 14px; font-size:15px; }
+.play.on { background:var(--accent); color:var(--on); border-color:var(--accent); }
 .mean { color:var(--grey); font-size:18px; margin-top:2px; }
 .ex { margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; color:var(--grey); font-size:14px; }
 .ex span { margin-right:2px; }
@@ -322,8 +321,8 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 .bar button[disabled] { opacity:.4; }
 </style></head><body>
 <div class="head">
-<div class="top"><span>Write</span><span class="right">${levelName ? `<span class="lv">${esc(levelName)}</span>` : ""}<button class="save${saved ? " on" : ""}" id="save" onclick="toggleSave()">${saved ? "Saved" : "Save"}</button></span></div>
-<div class="word"><span class="pinyin">${esc(w.pinyin)}</span><button class="play" onclick="say(${esc(JSON.stringify(w.hanzi))})">Listen</button><button class="play" id="explore" onclick="act(${esc(JSON.stringify("explore:" + w.hanzi))})">Explore</button></div>
+<div class="top"><span>Write</span><span class="right">${levelName ? `<span class="lv">${esc(levelName)}</span>` : ""}</span></div>
+<div class="word"><span class="pinyin">${esc(w.pinyin)}</span><button class="play" onclick="say(${esc(JSON.stringify(w.hanzi))})">Listen</button><button class="play" id="explore" onclick="act(${esc(JSON.stringify("explore:" + w.hanzi))})">Explore</button><button class="play${saved ? " on" : ""}" id="save" onclick="toggleSave()">${saved ? "Saved" : "Save"}</button></div>
 <div class="mean">${esc(meaning)}</div>
 ${(examples || []).length ? `<div class="ex"><span>Examples:</span>${examples.map(e => `<button class="chip" onclick="act(${esc(JSON.stringify("word:" + e.hanzi))})">${esc(e.hanzi)}${e.pinyin ? ` <small>${esc(e.pinyin)}</small>` : ""}</button>`).join("")}${self && self.chars.length > examples.length ? `<button class="chip more" onclick="openRad(0)">All ${self.chars.length}</button>` : ""}</div>` : ""}
 ${radicals ? `<div class="ex rads"><span>Radical:</span>${radicals.length ? radicals.map((r, i) => `<button class="chip" onclick="openRad(${i})">${esc(r.hanzi)}${r.pinyin ? ` <small>${esc(r.pinyin)}</small>` : ""}${r.short ? ` ${esc(r.short)}` : ""}</button>`).join("") : `<button class="chip none" onclick="toast('This word has no radical data yet.')">?</button>`}</div>` : ""}
@@ -547,6 +546,29 @@ if (CHARS.length) {
       build();
     }, 250);
   });
+  // Swipe outside the boxes: right to left goes to the next round, left to right to
+  // the round before. Not on the boxes (a finger there writes a stroke), the buttons
+  // or the radical sheet. After round 3, Next word is still a button.
+  var sx = null, sy = 0;
+  document.addEventListener("touchstart", function (e) {
+    var t = e.target, ok = e.touches.length === 1 && !(t.closest && t.closest(".pad, .bar, .sheetbox, button"));
+    sx = ok ? e.touches[0].clientX : null; sy = ok ? e.touches[0].clientY : 0;
+  }, { passive: true });
+  document.addEventListener("touchend", function (e) {
+    if (sx === null) return;
+    var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    sx = null;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    goRound(round + (dx < 0 ? 1 : -1));
+  }, { passive: true });
+  build();
+}
+// Go to round r: the word starts again from its first character and first stroke.
+function goRound(r) {
+  if (finished || showing || r < 1 || r > ROUNDS || r === round) return;
+  writers.forEach(function (w) { try { w.cancelQuiz(); } catch (e) {} });
+  clearTimeout(hintTimer);
+  round = r; ci = 0;
   build();
 }
 </script>

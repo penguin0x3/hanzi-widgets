@@ -365,7 +365,8 @@ check("Back goes to the words before, Next goes forward again", pageWord(o.html[
 check("Back and Next through seen words do not move your place", read(dir, "hanzi-write-path.json").pos === posB && pageWord(o.html[7]) !== pageWord(o.html[2]));
 check("colours are Green at first, with no theme button on the page", o.html[0].includes('data-theme="green"') && o.html[0].includes("--accent:#108652") && !o.html[0].includes("nextTheme") && !o.html[0].includes(">Auto</button>"));
 check("Write has no dark colours", !o.html[0].includes("prefers-color-scheme") && !o.html[0].includes("#0E1F16"));
-check("Save button sits at the top right", /<span class="right">.*<button class="save" id="save" onclick="toggleSave\(\)">Save<\/button><\/span>/.test(o.html[0]));
+check("Save sits next to Listen and Explore, with the same style", />Explore<\/button><button class="play" id="save" onclick="toggleSave\(\)">Save<\/button><\/div>/.test(o.html[0]) && !o.html[0].includes('class="save'));
+check("swipe changes the round, but not on the boxes or buttons", o.html[0].includes("function goRound(r)") && o.html[0].includes('closest(".pad, .bar, .sheetbox, button")') && o.html[0].includes("goRound(round + (dx < 0 ? 1 : -1))") && scriptsOk(o.html[0]));
 // Write Colours: the colours are chosen in their own script
 o = await run("Write Colours.js", { dir, alerts: ["Coral", 0] });
 check("Write Colours shows the 2 colour sets with Green ticked", o.alerts[0].actions.join("|") === "[x] Green|Blue & Coral" && o.alerts[1].title === "Saved");
@@ -451,11 +452,11 @@ check("Write path offline the first time: a clear message", o.alerts.length === 
   s = await run("Write 2.js", { dir: sd, query: { word: "谢谢" }, web: ["save:1"] });
   check("Save adds the word with pinyin and meaning", savedOf() === "谢谢" && read(path.join(sd, "hanzi-write"), "saved.json").words[0].pinyin === "xièxie");
   s = await run("Write.js", { dir: sd, query: { word: "学生" }, web: ["save:1", "next", "back"] });
-  check("a saved word shows Saved when you come back to it", s.html[2].includes('<button class="save on" id="save" onclick="toggleSave()">Saved</button>') && !s.html[1].includes("save on"));
+  check("a saved word shows Saved when you come back to it", s.html[2].includes('<button class="play on" id="save" onclick="toggleSave()">Saved</button>') && !s.html[1].includes('class="play on" id="save"'));
   check("saving from Write keeps the words saved in Write 2", savedOf() === "谢谢,学生");
   s = await run("Write Saved.js", { dir: sd, web: ["next", "next"] });
   const sw = s.html.map(pageWord);
-  check("Write Saved shows only saved words, marked Saved", sw.length === 3 && sw.every(x => x === '"谢谢"' || x === '"学生"') && s.html.every(h => h.includes("save on")));
+  check("Write Saved shows only saved words, marked Saved", sw.length === 3 && sw.every(x => x === '"谢谢"' || x === '"学生"') && s.html.every(h => h.includes('class="play on" id="save"')));
   check("Write Saved shows both words before one comes back", sw[0] !== sw[1]);
   check("Write Saved has no level tag and keeps its own progress", !s.html[0].includes('class="lv"') && fs.existsSync(path.join(sd, "hanzi-write-saved.json")));
   s = await run("Write Saved.js", { dir: sd, query: { word: "学生" }, web: ["save:0", "save:0"] });
