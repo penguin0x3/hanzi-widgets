@@ -33,9 +33,18 @@ const CACHE = path("hanzi-write"); // a folder, so these files do not show up as
 const LIB = fm.joinPath(CACHE, "hanzi-writer.min.js");
 const WRITE = path(MODE === "path" ? "hanzi-write-path.json" : MODE === "saved" ? "hanzi-write-saved.json" : "hanzi-write.json");
 const PATH_FILE = fm.joinPath(CACHE, "write-path.txt");
-const THEME_FILE = fm.joinPath(CACHE, "theme.txt"); // "auto", "light" or "dark", set by Write Colours
+const THEME_FILE = fm.joinPath(CACHE, "theme.txt"); // "green" or "coral", set by Write Colours
 const SAVED_FILE = fm.joinPath(CACHE, "saved.json"); // words saved with the Save button
-const THEMES = ["auto", "light", "dark"];
+const THEMES = ["green", "coral"];
+// The two colour sets (both light). --main is the Next word button: a colour or a gradient.
+const PALETTES = {
+  green: "--bg:#EEF7E8; --ink:#000000; --accent:#108652; --grey:#5F665F; --line:#D3E4CA; --card:#FFFFFF; --soft:#97DF67; --on:#FFFFFF; --bad:#C0392B; --ok:#108652; --main:#108652;",
+  // Blue & Coral: French Blue #3E5889, Burnt Coral #EF6A45, Chalk #DED9D3
+  coral: "--bg:#DED9D3; --ink:#1F2B44; --accent:#3E5889; --grey:#5E6573; --line:#C9C2B9; --card:#F4F1EC; --soft:#EF6A45; --on:#FFFFFF; --bad:#B3261E; --ok:#D4532E; --main:linear-gradient(90deg, #3E5889, #EF6A45);",
+};
+// The Explore page has its own green colours and turns dark with the iPhone.
+// In Write it takes the colours of Write instead, and stays light.
+const themed = (html, theme) => html.replace(/@media \(prefers-color-scheme: dark\) \{ :root \{[^}]*\} \}/g, ":root { " + PALETTES[theme] + " }");
 
 // ---------- files (read only for shared files) ----------
 async function readText(p) {
@@ -246,9 +255,7 @@ function pageHTML(w, lib, strokes, levelName, canBack, theme, examples, radicals
   return `<!doctype html><html data-theme="${theme}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
-:root { --bg:#EEF7E8; --ink:#000000; --accent:#108652; --grey:#5F665F; --line:#D3E4CA; --card:#FFFFFF; --soft:#97DF67; --on:#FFFFFF; --bad:#C0392B; --ok:#108652; }
-@media (prefers-color-scheme: dark) { :root[data-theme="auto"] { --bg:#0E1F16; --ink:#FFFFFF; --accent:#97DF67; --grey:#9DA39D; --line:#2F4A39; --card:#16291E; --soft:#108652; --on:#000000; --bad:#FF7A6B; --ok:#97DF67; } }
-:root[data-theme="dark"] { --bg:#0E1F16; --ink:#FFFFFF; --accent:#97DF67; --grey:#9DA39D; --line:#2F4A39; --card:#16291E; --soft:#108652; --on:#000000; --bad:#FF7A6B; --ok:#97DF67; }
+:root { ${PALETTES[theme] || PALETTES.green} }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink);
   font: 17px/1.45 -apple-system, "PingFang SC", sans-serif; -webkit-user-select:none; user-select:none; }
@@ -311,7 +318,7 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 .bar { position:fixed; left:0; right:0; bottom:0; padding:12px 16px 30px; background:var(--bg); border-top:1px solid var(--line);
   display:flex; gap:8px; }
 .bar button { flex:1; font-size:15px; padding:13px 4px; border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
-.bar button.main { background:var(--accent); color:var(--on); border-color:var(--accent); }
+.bar button.main { background:var(--main); color:var(--on); border-color:transparent; }
 .bar button[disabled] { opacity:.4; }
 </style></head><body>
 <div class="head">
@@ -825,7 +832,7 @@ st.done = st.done || {};
 st.deck = Array.isArray(st.deck) ? st.deck : [];
 const saveState = () => save(WRITE, JSON.stringify(st));
 let theme = String((await readText(THEME_FILE)) || "").trim();
-if (!THEMES.includes(theme)) theme = "auto";
+if (!THEMES.includes(theme)) theme = "green"; // also the old "auto", "light" and "dark"
 let savedList = await readSaved();
 
 const pack = MODE === "path" ? await loadPath() : MODE === "saved" ? loadSaved(savedList) : await loadWords(levels);
@@ -977,7 +984,7 @@ if (!pack.words.length && !single) {
     } else if (a.startsWith("explore:")) {
       const x = a.slice(8);
       if (!hanOnly(x).length) return;
-      await wv.evaluateJavaScript("openExplore(" + forScript(await explorePage(x, await exploreWords())) + ")", false);
+      await wv.evaluateJavaScript("openExplore(" + forScript(themed(await explorePage(x, await exploreWords()), theme)) + ")", false);
     } else if (a === "xback") {
       await wv.evaluateJavaScript("closeExplore()", false);
     } else if (a.startsWith("look:")) {

@@ -363,19 +363,28 @@ const pageWord = h => (h.match(/var WORD = (".*?")/) || [])[1];
 check("Back is off on the first word and on after Next", /id="back"[^>]*disabled/.test(o.html[0]) && !/id="back"[^>]*disabled/.test(o.html[1]));
 check("Back goes to the words before, Next goes forward again", pageWord(o.html[3]) === pageWord(o.html[1]) && pageWord(o.html[4]) === pageWord(o.html[0]) && pageWord(o.html[5]) === pageWord(o.html[1]) && pageWord(o.html[6]) === pageWord(o.html[2]));
 check("Back and Next through seen words do not move your place", read(dir, "hanzi-write-path.json").pos === posB && pageWord(o.html[7]) !== pageWord(o.html[2]));
-check("theme is Auto at first, with no theme button on the page", o.html[0].includes('data-theme="auto"') && !o.html[0].includes("nextTheme") && !o.html[0].includes(">Auto</button>"));
+check("colours are Green at first, with no theme button on the page", o.html[0].includes('data-theme="green"') && o.html[0].includes("--accent:#108652") && !o.html[0].includes("nextTheme") && !o.html[0].includes(">Auto</button>"));
+check("Write has no dark colours", !o.html[0].includes("prefers-color-scheme") && !o.html[0].includes("#0E1F16"));
 check("Save button sits at the top right", /<span class="right">.*<button class="save" id="save" onclick="toggleSave\(\)">Save<\/button><\/span>/.test(o.html[0]));
 // Write Colours: the colours are chosen in their own script
-o = await run("Write Colours.js", { dir, alerts: ["Dark", 0] });
-check("Write Colours shows the 3 choices with Auto ticked", o.alerts[0].actions.join("|") === "[x] Auto (follows the iPhone)|Light|Dark" && o.alerts[1].title === "Saved");
-check("Write Colours saves theme.txt", fs.readFileSync(path.join(dir, "hanzi-write", "theme.txt"), "utf8") === "dark");
-o = await run("Write.js", { dir, web: ["theme:light", "next"] });
-check("Write uses the theme from Write Colours and ignores the old theme action", o.html[0].includes('data-theme="dark"') && o.html[1].includes('data-theme="dark"') && fs.readFileSync(path.join(dir, "hanzi-write", "theme.txt"), "utf8") === "dark");
+o = await run("Write Colours.js", { dir, alerts: ["Coral", 0] });
+check("Write Colours shows the 2 colour sets with Green ticked", o.alerts[0].actions.join("|") === "[x] Green|Blue & Coral" && o.alerts[1].title === "Saved");
+check("Write Colours saves theme.txt", fs.readFileSync(path.join(dir, "hanzi-write", "theme.txt"), "utf8") === "coral");
+o = await run("Write.js", { dir, web: ["theme:green", "next", "explore:门"] });
+check("Write uses Blue & Coral from Write Colours and ignores the old theme action", o.html[0].includes('data-theme="coral"') && o.html[1].includes("--bg:#DED9D3") && o.html[1].includes("linear-gradient(90deg, #3E5889, #EF6A45)") && fs.readFileSync(path.join(dir, "hanzi-write", "theme.txt"), "utf8") === "coral");
+{
+  const xh = JSON.parse(o.js.find(j => j.startsWith("openExplore(")).slice(12, -1));
+  check("Explore in Write takes the Write colours and stays light", xh.includes(":root { --bg:#DED9D3") && !xh.includes("prefers-color-scheme"));
+}
 o = await run("Write Colours.js", { dir, alerts: [-1] });
-check("Write Colours: Cancel changes nothing", o.alerts[0].actions[2] === "[x] Dark" && o.alerts.length === 1 && fs.readFileSync(path.join(dir, "hanzi-write", "theme.txt"), "utf8") === "dark");
-o = await run("Write Colours.js", { dir: newDir(), alerts: ["Light", 0] });
-check("Write Colours works before Write ever ran", o.alerts[1].message.includes("Light"));
-fs.writeFileSync(path.join(dir, "hanzi-write", "theme.txt"), "auto");
+check("Write Colours: Cancel changes nothing", o.alerts[0].actions[1] === "[x] Blue & Coral" && o.alerts.length === 1 && fs.readFileSync(path.join(dir, "hanzi-write", "theme.txt"), "utf8") === "coral");
+o = await run("Write Colours.js", { dir: newDir(), alerts: ["Green", 0] });
+check("Write Colours works before Write ever ran", o.alerts[1].message.includes("Green"));
+for (const old of ["dark", "light", "auto"]) {
+  fs.writeFileSync(path.join(dir, "hanzi-write", "theme.txt"), old);
+  o = await run("Write.js", { dir });
+  check("an old theme.txt (" + old + ") becomes Green", o.html[0].includes('data-theme="green"'));
+}
 // Radicals: a "Radical" tag and a row with its 3 example characters
 const radPos = order.findIndex(h => radSet.has(h));
 fs.writeFileSync(path.join(dir, "hanzi-write-path.json"), JSON.stringify(Object.assign(read(dir, "hanzi-write-path.json"), { pos: radPos })));

@@ -3,24 +3,25 @@
 // icon-color: deep-brown; icon-glyph: palette;
 
 // Write Colours: choose the colours of Write, Write 2 and Write Saved.
-// Auto follows the iPhone (light or dark, like the rest of the iPhone).
+// Green: green on a light mint background. Blue & Coral: French Blue and
+// Burnt Coral on a chalk background. Both are light.
 // The choice is saved in iCloud Drive > Scriptable > hanzi-write > theme.txt,
 // and every Write script reads it when it opens.
 
 const fm = FileManager.iCloud();
 const CACHE = fm.joinPath(fm.documentsDirectory(), "hanzi-write");
 const FILE = fm.joinPath(CACHE, "theme.txt");
-const THEMES = ["auto", "light", "dark"];
-const LABELS = { auto: "Auto (follows the iPhone)", light: "Light", dark: "Dark" };
+const THEMES = ["green", "coral"];
+const LABELS = { green: "Green", coral: "Blue & Coral" };
 
-let now = "auto";
+let now = "green";
 try {
   if (fm.fileExists(FILE)) {
     await fm.downloadFileFromiCloud(FILE);
     now = fm.readString(FILE).trim();
   }
 } catch (e) {}
-if (!THEMES.includes(now)) now = "auto";
+if (!THEMES.includes(now)) now = "green"; // also the old "auto", "light" and "dark"
 
 const al = new Alert();
 al.title = "Write colours";
