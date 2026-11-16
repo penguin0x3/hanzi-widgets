@@ -378,6 +378,20 @@ check("a radical from radicals.txt gets the tag and its 3 examples", o.html[0].i
 check("an example from radicals.txt opens with its pinyin and meaning", pageWord(o.html[1]) === '"往"' && o.html[1].includes("toward"));
 o = await run("Write 2.js", { dir: newDir(), query: { word: "氵" } });
 check("Write 2 also tags radicals", o.html[0].includes('<span class="lv">Radical</span>') && o.html[0].includes('&quot;word:河&quot;'));
+// The radical of a character: a chip that opens it, or "?" with a short note
+const radH = order[radPos];
+o = await run("Write.js", { dir, web: ["word:" + grp[1], "rad:" + radH, "back", "rad:不是部首"] });
+check("a radical page has no Radical: row", !o.html[0].includes("Radical:</span>"));
+check("an example character shows its radical from write-path.txt", o.html[1].includes("Radical:</span>") && o.html[1].includes('&quot;rad:' + radH + '&quot;'));
+check("tapping the radical chip opens the radical with its tag and examples", pageWord(o.html[2]) === JSON.stringify(radH) && o.html[2].includes('<span class="lv">Radical</span>') && o.html[2].includes("Examples:"));
+check("Back from the radical goes to the character", pageWord(o.html[3]) === JSON.stringify(grp[1]));
+check("a radical that is not the word's is ignored", o.html.length === 4);
+o = await run("Write.js", { dir, query: { word: "往", pinyin: "wǎng", meaning: "toward" }, web: ["rad:彳"] });
+check("a character from radicals.txt shows its radical with pinyin and name", o.html[0].includes('&quot;rad:彳&quot;') && o.html[0].includes("chì") && o.html[0].includes("Step"));
+check("its radical opens with the tag and 3 examples", pageWord(o.html[1]) === '"彳"' && o.html[1].includes('<span class="lv">Radical</span>') && o.html[1].includes('&quot;word:很&quot;'));
+o = await run("Write 2.js", { dir: newDir(), query: { word: "谢谢" }, web: ["rad:谢"] });
+check("a word with no radical data gets a ? chip with a note", o.html[0].includes('class="chip none"') && o.html[0].includes("This word has no radical data yet.") && o.html[0].includes('id="toast"'));
+check("the ? chip opens nothing", o.html.length === 1);
 o = await run("Write.js", { dir, offline: true });
 check("Write path works offline with the saved list", o.html.length === 1 && o.html[0].includes("CHARS = "));
 o = await run("Write.js", { dir: newDir(), offline: true });
