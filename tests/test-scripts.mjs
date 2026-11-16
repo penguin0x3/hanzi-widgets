@@ -257,8 +257,21 @@ const ld2 = newDir();
 fs.copyFileSync(path.join(ROOT, "data", "hsk1-2.json"), path.join(ld2, "hsk1-2.json"));
 o = await run("Hourly Words.js", { dir: ld2, query: { word: "晚上" }, web: ["look:1:饭"], offline: true });
 check("no dictionary and offline: a clear note", /needs the internet/.test(card(o.js[0]).note));
+// Explore: the full dictionary page, with Back through the pages
+fs.copyFileSync(path.join(ROOT, "scriptable", "radicals.txt"), path.join(ld, "radicals.txt"));
+o = await run("Hourly Words.js", { dir: ld, query: { word: "晚上" }, web: ["explore:议", "explore:会议", "xback", "xback", "explore:氵", "speak:议"] });
+const xp = o.html[1] || "";
+check("the card has Explore and a small close button, no Close button", o.html[0].includes('btn("Explore"') && !o.html[0].includes('btn("Close"') && o.html[0].includes('x.className = "x"'));
+check("Explore opens a full page for the word", xp.includes('<div class="big" data-look>议</div>') && xp.includes("<h2>Meaning</h2>") && xp.includes("to discuss"));
+check("Explore lists words from your HSK lists with their level", xp.includes("Words with 议 in your lists") && xp.includes('<b data-look>会议</b>') && xp.includes(">HSK 1-2<"));
+check("Explore lists more short words from the dictionary, no names", xp.includes("More words with 议") && !xp.includes("上议院") && !xp.includes("中俄边界协议"));
+check("Explore shows example sentences and a Back button", xp.includes("<h2>Examples</h2>") && xp.includes("act('xback')"));
+check("Explore page scripts work and its characters can be tapped", scriptsOk(xp) && xp.includes("function showCard") && xp.includes('btn("Explore"'));
+check("Explore from an Explore page, then Back twice to the word page", o.html[2].includes('<div class="big" data-look>会议</div>') && o.html[3].includes('<div class="big" data-look>议</div>') && o.html[4].includes('class="hanzi" data-look>晚上<'));
+check("Explore on a radical shows the radical", o.html[5].includes("<h2>Radical</h2>") && o.html[5].includes("Water"));
+check("Listen on the Explore page speaks", o.speak.includes("议"));
 check("Hourly Words and Radicals have the same dictionary code", (() => {
-  const block = f => { const t = fs.readFileSync(path.join(ROOT, "scriptable", f), "utf8"); return t.slice(t.indexOf("// ---------- tap a character"), t.indexOf("async function showLook")); };
+  const block = f => { const t = fs.readFileSync(path.join(ROOT, "scriptable", f), "utf8"); return t.slice(t.indexOf("// ---------- tap a character"), t.indexOf("mainPage());\n}") + 13); };
   return block("Hourly Words.js").length > 500 && block("Hourly Words.js") === block("Radicals.js");
 })());
 

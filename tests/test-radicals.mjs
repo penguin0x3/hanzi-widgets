@@ -35,15 +35,16 @@ function makeEnv(family, inWidget, nowMs, opts = {}) {
       async present() { for (const a of opts.web || []) { env.allowed.push(this.shouldAllowRequest({ url: "hanzi://" + a })); await new Promise(r => setTimeout(r, 5)); } }
     },
     Safari: { open: u => env.opened.push(u) },
+    Speech: { speak: t => env.speak.push(t) },
     console: { log() {} },
     Date: class extends Date { constructor(...a) { a.length ? super(...a) : super(nowMs); } },
   };
-  env.texts = texts; env.html = html; env.allowed = []; env.opened = [];
+  env.texts = texts; env.html = html; env.allowed = []; env.opened = []; env.speak = [];
   return env;
 }
 async function run(family, inWidget, nowMs, opts) {
   const env = makeEnv(family, inWidget, nowMs, opts);
-  const names = Object.keys(env).filter(k => !["texts", "widget", "html", "allowed", "opened"].includes(k));
+  const names = Object.keys(env).filter(k => !["texts", "widget", "html", "allowed", "opened", "speak"].includes(k));
   await new AsyncFunction(...names, src)(...names.map(n => env[n]));
   return env;
 }
@@ -88,6 +89,9 @@ check("detail page has 4 Listen buttons (radical and 3 characters), no Play", (p
 check("detail page has 4 Write buttons: the radical and its 3 characters", (page.match(/>Write</g) || []).length === 4);
 const wr = await run(null, false, t, { dir: tmp, query: { radical: "氵" }, web: ['write:["河","hé","river"]'] });
 check("Write button opens the Write script on that character", wr.opened.length === 1 && wr.opened[0] === "scriptable:///run/Write?word=" + encodeURIComponent("河") + "&pinyin=h%C3%A9&meaning=river" && wr.allowed[0] === false);
+const xr = await run(null, false, t, { dir: tmp, query: { radical: "氵" }, web: ["explore:河", "xback", "speak:河"] });
+check("Explore opens a full page for a character, Back goes to the radical", (xr.html[1] || "").includes('<div class="big" data-look>河</div>') && (xr.html[2] || "").includes('<div class="rad" data-look>氵</div>'));
+check("Listen on the Explore page speaks", (xr.speak || []).includes("河"));
 const chePage = (await run(null, false, t, { dir: tmp, query: { radical: "车" } })).html[0];
 check("radical itself has a Play button", /class="py">chē <button class="play"[^>]*say\(&quot;车&quot;\)/.test(chePage));
 const waterPage = (await run(null, false, t, { dir: tmp, query: { radical: "氵" } })).html[0];

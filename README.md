@@ -2,7 +2,7 @@
 
 Learn Chinese without opening an app. New words and radicals show up on your iPhone and Mac by themselves.
 
-- **Hourly Words** (iPhone Lock Screen or Home Screen): one word at a time, with hanzi, pinyin and an English meaning. Tap it for all meanings, the measure word, an example sentence and sound. Mark words as known so they show up less. Tap any Chinese character on the word page (the word or the example sentence) for a dictionary card: the longest word that starts there, with pinyin, meaning, Listen and Write. A word you tap comes back the next day for review (then after 3 and 7 days if you tap it again).
+- **Hourly Words** (iPhone Lock Screen or Home Screen): one word at a time, with hanzi, pinyin and an English meaning. Tap it for all meanings, the measure word, an example sentence and sound. Mark words as known so they show up less. Tap any Chinese character on the word page (the word or the example sentence) for a dictionary card: the longest word that starts there, with pinyin, meaning, Listen, Write and **Explore**. Explore opens a full dictionary page: all meanings, words with it from your lists and from the dictionary, example sentences, and the radical if it is one. Back goes through the pages you opened. A word you tap comes back the next day for review (then after 3 and 7 days if you tap it again).
 - **Levels:** HSK 1-2, HSK 3, HSK 4, HSK 5. Lists download by themselves from this repo and work offline after that.
 - **Add Word:** share a Chinese word from any app to add it to your own list. Pinyin and meaning are filled in.
 - **Radicals** (iPhone Home Screen): one of 50 common radicals, with 3 example characters. Tap it for a word and an example sentence with sound for each character. Tap any character there for the same dictionary card.
@@ -56,6 +56,7 @@ Use **Add Word**, or edit `mywords.txt` in iCloud Drive > Scriptable. One word p
 - **2026-11-15:** Write and Write 2 got a Back button (4 buttons at the bottom), Show strokes now works in round 3 and after the word is done, and a theme button (Auto / Light / Dark, saved in `hanzi-write/theme.txt`). Tests: 132 pass.
 - **2026-11-16:** every radical (from `write-path.txt` or `radicals.txt`) gets a Radical tag in Write and Write 2, with an Examples row under the meaning. Tests: 140 pass.
 - **2026-11-16:** tap a character in Hourly Words or Radicals for a dictionary card (CC-CEDICT from `dict.txt`, downloaded the first time, then offline). Tests: 150 + 34 pass.
+- **2026-11-16:** the dictionary card got Explore (full dictionary page with Back) and a small close button. Tests: 159 + 36 pass.
 - **Next step:** run Install on the iPhone to get the new `Write.js` and `Write 2.js`, and try them on a real word.
 
 ## License
