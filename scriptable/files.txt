@@ -5,5 +5,7 @@ Radicals.js
 Add Word.js
 Write.js
 Write 2.js
+Write Saved.js
+Write Colours.js
 radicals.txt
 Install.js

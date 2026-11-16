@@ -102,8 +102,8 @@ for (const lv of ["hsk1-2", "hsk3", "hsk4", "hsk5"]) {
 // ---------- Install ----------
 let dir = newDir();
 let o = await run("Install.js", { dir, alerts: [0, 0] });
-check("Install downloads 6 files and the HSK1-2 list",
-  ["Hourly Words.js", "Radicals.js", "Add Word.js", "Write.js", "Write 2.js", "radicals.txt", "hsk1-2.json"].every(f => fs.existsSync(path.join(dir, f))));
+check("Install downloads the scripts and the HSK1-2 list",
+  ["Hourly Words.js", "Radicals.js", "Add Word.js", "Write.js", "Write 2.js", "Write Saved.js", "Write Colours.js", "radicals.txt", "hsk1-2.json"].every(f => fs.existsSync(path.join(dir, f))));
 check("Install reports success", o.alerts[1].title === "Installed");
 check("Install updates itself", fs.readFileSync(path.join(dir, "Install.js"), "utf8") === fs.readFileSync(path.join(ROOT, "scriptable", "Install.js"), "utf8"));
 check("Install takes the file list from files.txt", fs.readFileSync(path.join(ROOT, "scriptable", "files.txt"), "utf8").split("\n").filter(l => l && !l.startsWith("#")).every(f => fs.existsSync(path.join(dir, f))));
@@ -296,11 +296,11 @@ o = await run("Hourly Words.js", { dir, alerts: ["Show a word", -1] });
 check("Show a word opens a detail page", o.html.length === 1);
 
 // ---------- Write (path: radicals, then simple words) ----------
-check("Write and Write 2 differ only in MODE", (() => {
+for (const [f, m] of [["Write 2.js", "random"], ["Write Saved.js", "saved"]]) check("Write and " + f + " differ only in MODE", (() => {
   const a = fs.readFileSync(path.join(ROOT, "scriptable", "Write.js"), "utf8").split("\n");
-  const b = fs.readFileSync(path.join(ROOT, "scriptable", "Write 2.js"), "utf8").split("\n");
+  const b = fs.readFileSync(path.join(ROOT, "scriptable", f), "utf8").split("\n");
   const diff = a.map((l, i) => l === b[i] ? null : l + " / " + b[i]).filter(Boolean);
-  return a.length === b.length && diff.length === 1 && diff[0].includes('MODE = "path"') && diff[0].includes('MODE = "random"');
+  return a.length === b.length && diff.length === 1 && diff[0].includes('MODE = "path"') && diff[0].includes('MODE = "' + m + '"');
 })());
 const pathItems = fs.readFileSync(path.join(ROOT, "scriptable", "write-path.txt"), "utf8").split("\n").filter(l => l.trim() && !l.startsWith("#")).map(l => l.split("|")[0].trim());
 const pathLines = fs.readFileSync(path.join(ROOT, "scriptable", "write-path.txt"), "utf8").split("\n").filter(l => l.trim() && !l.startsWith("#")).map(l => l.split("|").map(x => x.trim()));
@@ -363,11 +363,18 @@ const pageWord = h => (h.match(/var WORD = (".*?")/) || [])[1];
 check("Back is off on the first word and on after Next", /id="back"[^>]*disabled/.test(o.html[0]) && !/id="back"[^>]*disabled/.test(o.html[1]));
 check("Back goes to the words before, Next goes forward again", pageWord(o.html[3]) === pageWord(o.html[1]) && pageWord(o.html[4]) === pageWord(o.html[0]) && pageWord(o.html[5]) === pageWord(o.html[1]) && pageWord(o.html[6]) === pageWord(o.html[2]));
 check("Back and Next through seen words do not move your place", read(dir, "hanzi-write-path.json").pos === posB && pageWord(o.html[7]) !== pageWord(o.html[2]));
-check("theme is Auto at first", o.html[0].includes('data-theme="auto"') && o.html[0].includes(">Auto</button>"));
-o = await run("Write.js", { dir, web: ["theme:dark", "next"] });
-check("theme choice is saved and used on the next page", o.html[1].includes('data-theme="dark"') && fs.readFileSync(path.join(dir, "hanzi-write", "theme.txt"), "utf8") === "dark");
-o = await run("Write.js", { dir, web: ["theme:pink"] });
-check("a wrong theme is ignored", o.html[0].includes('data-theme="dark"'));
+check("theme is Auto at first, with no theme button on the page", o.html[0].includes('data-theme="auto"') && !o.html[0].includes("nextTheme") && !o.html[0].includes(">Auto</button>"));
+check("Save button sits at the top right", /<span class="right">.*<button class="save" id="save" onclick="toggleSave\(\)">Save<\/button><\/span>/.test(o.html[0]));
+// Write Colours: the colours are chosen in their own script
+o = await run("Write Colours.js", { dir, alerts: ["Dark", 0] });
+check("Write Colours shows the 3 choices with Auto ticked", o.alerts[0].actions.join("|") === "[x] Auto (follows the iPhone)|Light|Dark" && o.alerts[1].title === "Saved");
+check("Write Colours saves theme.txt", fs.readFileSync(path.join(dir, "hanzi-write", "theme.txt"), "utf8") === "dark");
+o = await run("Write.js", { dir, web: ["theme:light", "next"] });
+check("Write uses the theme from Write Colours and ignores the old theme action", o.html[0].includes('data-theme="dark"') && o.html[1].includes('data-theme="dark"') && fs.readFileSync(path.join(dir, "hanzi-write", "theme.txt"), "utf8") === "dark");
+o = await run("Write Colours.js", { dir, alerts: [-1] });
+check("Write Colours: Cancel changes nothing", o.alerts[0].actions[2] === "[x] Dark" && o.alerts.length === 1 && fs.readFileSync(path.join(dir, "hanzi-write", "theme.txt"), "utf8") === "dark");
+o = await run("Write Colours.js", { dir: newDir(), alerts: ["Light", 0] });
+check("Write Colours works before Write ever ran", o.alerts[1].message.includes("Light"));
 fs.writeFileSync(path.join(dir, "hanzi-write", "theme.txt"), "auto");
 // Radicals: a "Radical" tag and a row with its 3 example characters
 const radPos = order.findIndex(h => radSet.has(h));
@@ -425,6 +432,28 @@ o = await run("Write.js", { dir, offline: true });
 check("Write path works offline with the saved list", o.html.length === 1 && o.html[0].includes("CHARS = "));
 o = await run("Write.js", { dir: newDir(), offline: true });
 check("Write path offline the first time: a clear message", o.alerts.length === 1 && o.alerts[0].message.includes("needs the internet"));
+
+// ---------- Save and Write Saved ----------
+{
+  const sd = newDir();
+  const savedOf = () => read(path.join(sd, "hanzi-write"), "saved.json").words.map(x => x.hanzi).join(",");
+  let s = await run("Write Saved.js", { dir: sd });
+  check("Write Saved with no saved words says how to add one", s.alerts[0].message.includes("No saved words yet") && !s.html.length);
+  s = await run("Write 2.js", { dir: sd, query: { word: "谢谢" }, web: ["save:1"] });
+  check("Save adds the word with pinyin and meaning", savedOf() === "谢谢" && read(path.join(sd, "hanzi-write"), "saved.json").words[0].pinyin === "xièxie");
+  s = await run("Write.js", { dir: sd, query: { word: "学生" }, web: ["save:1", "next", "back"] });
+  check("a saved word shows Saved when you come back to it", s.html[2].includes('<button class="save on" id="save" onclick="toggleSave()">Saved</button>') && !s.html[1].includes("save on"));
+  check("saving from Write keeps the words saved in Write 2", savedOf() === "谢谢,学生");
+  s = await run("Write Saved.js", { dir: sd, web: ["next", "next"] });
+  const sw = s.html.map(pageWord);
+  check("Write Saved shows only saved words, marked Saved", sw.length === 3 && sw.every(x => x === '"谢谢"' || x === '"学生"') && s.html.every(h => h.includes("save on")));
+  check("Write Saved shows both words before one comes back", sw[0] !== sw[1]);
+  check("Write Saved has no level tag and keeps its own progress", !s.html[0].includes('class="lv"') && fs.existsSync(path.join(sd, "hanzi-write-saved.json")));
+  s = await run("Write Saved.js", { dir: sd, query: { word: "学生" }, web: ["save:0", "save:0"] });
+  check("Saved again takes the word out", savedOf() === "谢谢");
+  s = await run("Write Saved.js", { dir: sd, web: ["save:9"] });
+  check("a wrong save action changes nothing", savedOf() === "谢谢" && pageWord(s.html[0]) === '"谢谢"');
+}
 
 // ---------- Write 2 (random words from your levels) ----------
 dir = newDir();

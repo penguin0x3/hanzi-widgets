@@ -7,6 +7,7 @@
 //   in a random order. Each radical always comes with its 3 characters, then 1 or 2
 //   other words. Radicals get a "Radical" tag. It remembers where you stopped.
 // - MODE "random" (Write 2): words from your HSK levels, words not written yet first.
+// - MODE "saved" (Write Saved): the words you saved with the Save button, in a random order.
 // - Each word: 3 rounds per character. Rounds 1-2: trace over a faint character.
 //   Round 3: write it from memory on an empty grid.
 // - A wrong stroke turns red. After 3 misses, the right stroke is shown.
@@ -17,23 +18,23 @@
 // The library and stroke data download the first time and are saved in the
 // hanzi-write folder, so characters you wrote before also work offline.
 
-const MODE = "path"; // "path" or "random" (see above)
+const MODE = "path"; // "path", "random" or "saved" (see above)
 const REPO = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/";
 const LIB_URL = "https://cdn.jsdelivr.net/npm/hanzi-writer@3.7.3/dist/hanzi-writer.min.js";
 const DATA_URL = "https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0.1/";
 const LEVELS = ["hsk1-2", "hsk3", "hsk4", "hsk5"];
 const LEVEL_NAMES = { "hsk1-2": "HSK 1-2", hsk3: "HSK 3", hsk4: "HSK 4", hsk5: "HSK 5", mine: "My words" };
 const ROUNDS = 3; // rounds per character; the last round has no outline
-const THEME_LABEL = { auto: "Auto", light: "Light", dark: "Dark" };
 
 const fm = FileManager.iCloud();
 const dir = fm.documentsDirectory();
 const path = name => fm.joinPath(dir, name);
 const CACHE = path("hanzi-write"); // a folder, so these files do not show up as scripts
 const LIB = fm.joinPath(CACHE, "hanzi-writer.min.js");
-const WRITE = path(MODE === "path" ? "hanzi-write-path.json" : "hanzi-write.json");
+const WRITE = path(MODE === "path" ? "hanzi-write-path.json" : MODE === "saved" ? "hanzi-write-saved.json" : "hanzi-write.json");
 const PATH_FILE = fm.joinPath(CACHE, "write-path.txt");
-const THEME_FILE = fm.joinPath(CACHE, "theme.txt"); // "auto", "light" or "dark"
+const THEME_FILE = fm.joinPath(CACHE, "theme.txt"); // "auto", "light" or "dark", set by Write Colours
+const SAVED_FILE = fm.joinPath(CACHE, "saved.json"); // words saved with the Save button
 const THEMES = ["auto", "light", "dark"];
 
 // ---------- files (read only for shared files) ----------
@@ -117,6 +118,21 @@ async function loadWords(levels) {
   };
   for (const lv of levels) for (const w of (await getLevel(lv)) || []) add(w, lv);
   for (const w of await myWords()) add(w, "mine");
+  return { words, byHanzi };
+}
+
+// Saved words (the Save button), oldest first: [{hanzi, pinyin, short}].
+async function readSaved() {
+  const d = await readJSON(SAVED_FILE, {});
+  return Array.isArray(d.words) ? d.words.filter(x => x && hanOnly(String(x.hanzi || "")).length) : [];
+}
+function loadSaved(list) {
+  const words = [], byHanzi = {};
+  for (const x of list) {
+    if (byHanzi[x.hanzi]) continue;
+    byHanzi[x.hanzi] = { hanzi: x.hanzi, pinyin: x.pinyin || "", short: x.short || "", level: "saved" };
+    words.push(byHanzi[x.hanzi]);
+  }
   return { words, byHanzi };
 }
 
@@ -214,7 +230,8 @@ const forScript = v => JSON.stringify(v).replace(/</g, "\\u003c");
 // radicals: the radicals of the characters, each with its characters for the info
 // sheet ([] = none in the data, null = no row, because the word is a radical itself).
 // self: the sheet of the word when it is a radical (the "All" chip after its examples).
-function pageHTML(w, lib, strokes, levelName, canBack, theme, examples, radicals, self) {
+// saved: the word is in your saved list (the Save button shows "Saved").
+function pageHTML(w, lib, strokes, levelName, canBack, theme, examples, radicals, self, saved) {
   const sheets = radicals || (self ? [self] : []);
   const chars = hanOnly(w.hanzi).filter(c => strokes[c]);
   const meaning = w.short || (w.senses || [])[0] || "";
@@ -238,7 +255,8 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 .top { display:flex; justify-content:space-between; align-items:center; color:var(--grey); font-size:14px; }
 .lv { border:1px solid var(--line); border-radius:10px; padding:1px 8px; }
 .right { display:flex; gap:8px; align-items:center; }
-.theme { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:10px; padding:2px 10px; font-size:13px; }
+.save { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:10px; padding:2px 10px; font-size:13px; }
+.save.on { background:var(--accent); color:var(--on); border-color:var(--accent); }
 .word { margin-top:14px; display:flex; align-items:center; gap:12px; }
 .pinyin { font-size:26px; color:var(--accent); font-weight:600; }
 .play { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:20px; padding:6px 14px; font-size:15px; }
@@ -297,7 +315,7 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 .bar button[disabled] { opacity:.4; }
 </style></head><body>
 <div class="head">
-<div class="top"><span>Write</span><span class="right">${levelName ? `<span class="lv">${esc(levelName)}</span>` : ""}<button class="theme" id="theme" onclick="nextTheme()">${THEME_LABEL[theme]}</button></span></div>
+<div class="top"><span>Write</span><span class="right">${levelName ? `<span class="lv">${esc(levelName)}</span>` : ""}<button class="save${saved ? " on" : ""}" id="save" onclick="toggleSave()">${saved ? "Saved" : "Save"}</button></span></div>
 <div class="word"><span class="pinyin">${esc(w.pinyin)}</span><button class="play" onclick="say(${esc(JSON.stringify(w.hanzi))})">Listen</button><button class="play" id="explore" onclick="act(${esc(JSON.stringify("explore:" + w.hanzi))})">Explore</button></div>
 <div class="mean">${esc(meaning)}</div>
 ${(examples || []).length ? `<div class="ex"><span>Examples:</span>${examples.map(e => `<button class="chip" onclick="act(${esc(JSON.stringify("word:" + e.hanzi))})">${esc(e.hanzi)}${e.pinyin ? ` <small>${esc(e.pinyin)}</small>` : ""}</button>`).join("")}${self && self.chars.length > examples.length ? `<button class="chip more" onclick="openRad(0)">All ${self.chars.length}</button>` : ""}</div>` : ""}
@@ -381,16 +399,13 @@ function toast(t) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(function () { b.classList.remove("on"); }, 2000);
 }
-// Theme button: Auto (follows the iPhone) -> Light -> Dark. The colors change at once,
-// the writing goes on, and Write remembers the choice.
-var THEMES = ${forScript(THEMES)}, LABELS = ${forScript(THEME_LABEL)};
-function nextTheme() {
-  var root = document.documentElement;
-  var t = THEMES[(THEMES.indexOf(root.getAttribute("data-theme")) + 1) % THEMES.length];
-  root.setAttribute("data-theme", t);
-  el("theme").textContent = LABELS[t];
-  if (typeof recolor === "function") recolor();
-  act("theme:" + t);
+// Save button: keep this word for Write Saved. Tap again to take it out.
+// The writing goes on; only the button changes.
+function toggleSave() {
+  var b = el("save"), on = !b.classList.contains("on");
+  b.classList.toggle("on", on);
+  b.textContent = on ? "Saved" : "Save";
+  act("save:" + (on ? 1 : 0));
 }
 
 var WORD = ${forScript(w.hanzi)}, CHARS = ${forScript(chars)}, DATA = ${forScript(strokes)}, ROUNDS = ${ROUNDS};
@@ -439,12 +454,6 @@ function build() {
   draw();
   if (!finished) quizChar();
 }
-// New theme: make the boxes again with the new colors. Characters already written stay;
-// the character you are writing starts again from its first stroke.
-function recolor() {
-  writers.forEach(function (w) { try { w.cancelQuiz(); } catch (e) {} });
-  build();
-}
 // After a stroke animation, put a box back as it was: drawn if written this round.
 function restore(i) { if (finished || i < ci || (i === ci && charDone)) writers[i].showCharacter(); else writers[i].hideCharacter(); }
 // Tap a box that is not the one you are writing: play its stroke order.
@@ -467,7 +476,7 @@ function quizChar() {
       note("Good!", "good");
       var run = showRun;
       setTimeout(function () {
-        if (run !== showRun) return; // the boxes were made again (new theme or turned phone)
+        if (run !== showRun) return; // the boxes were made again (turned phone)
         // If Show strokes is playing, go on when it ends.
         if (showing) { afterShow = goOn; return; }
         goOn();
@@ -817,8 +826,9 @@ st.deck = Array.isArray(st.deck) ? st.deck : [];
 const saveState = () => save(WRITE, JSON.stringify(st));
 let theme = String((await readText(THEME_FILE)) || "").trim();
 if (!THEMES.includes(theme)) theme = "auto";
+let savedList = await readSaved();
 
-const pack = MODE === "path" ? await loadPath() : await loadWords(levels);
+const pack = MODE === "path" ? await loadPath() : MODE === "saved" ? loadSaved(savedList) : await loadWords(levels);
 // Path: st.order is this round's random order. A new one is made when the round ends
 // or the list on GitHub changes.
 if (MODE === "path" && pack.words.length) {
@@ -837,6 +847,7 @@ const lib = pack.words.length || single ? await getLib() : null;
 if (!pack.words.length && !single) {
   await info("Write", MODE === "path"
     ? "Write needs the internet the first time, to get the list. Connect and run Write again."
+    : MODE === "saved" ? "No saved words yet. Tap Save in Write or Write 2 to add one."
     : "No words yet. Connect to the internet and run Hourly Words once, then run Write again.");
 } else if (!lib) {
   await info("Write", "Write needs the internet the first time, to get the stroke data. Connect and run Write again.");
@@ -877,8 +888,8 @@ if (!pack.words.length && !single) {
   async function pageFor(w) {
     const strokes = {};
     for (const c of hanOnly(w.hanzi)) { const d = await getStrokes(c); if (d) strokes[c] = d; }
-    const tag = isRadical(w) ? "Radical" : MODE === "path" || w.level === "one" ? "" : w.level === "mine" ? LEVEL_NAMES.mine : levelName;
-    return pageHTML(w, lib, strokes, tag, at > 0, theme, isRadical(w) ? examplesFor(w) : [], isRadical(w) ? null : radicalsFor(w), isRadical(w) ? radEntry(w.hanzi) : null);
+    const tag = isRadical(w) ? "Radical" : MODE !== "random" || w.level === "one" ? "" : w.level === "mine" ? LEVEL_NAMES.mine : levelName;
+    return pageHTML(w, lib, strokes, tag, at > 0, theme, isRadical(w) ? examplesFor(w) : [], isRadical(w) ? null : radicalsFor(w), isRadical(w) ? radEntry(w.hanzi) : null, savedList.some(x => x.hanzi === w.hanzi));
   }
   // Path: st.pos is the item to show next time. Finishing a word moves it on,
   // so closing Write after a word starts at the next one.
@@ -954,9 +965,13 @@ if (!pack.words.length && !single) {
       if (at === 0) return;
       w = seen[--at];
       await wv.loadHTML(await pageFor(w));
-    } else if (a.startsWith("theme:")) {
-      const t = a.slice(6);
-      if (THEMES.includes(t)) { theme = t; save(THEME_FILE, t); }
+    } else if (a === "save:1" || a === "save:0") {
+      // Save button: add the word on screen to saved.json, or take it out.
+      // The file is read again first, so a change from another Write is kept.
+      savedList = (await readSaved()).filter(x => x.hanzi !== w.hanzi);
+      if (a === "save:1") savedList.push({ hanzi: w.hanzi, pinyin: w.pinyin || "", short: w.short || (w.senses || [])[0] || "" });
+      if (!fm.fileExists(CACHE)) fm.createDirectory(CACHE, true);
+      save(SAVED_FILE, JSON.stringify({ words: savedList }));
     } else if (a.startsWith("speak:")) {
       Speech.speak(a.slice(6));
     } else if (a.startsWith("explore:")) {
