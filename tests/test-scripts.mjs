@@ -270,6 +270,12 @@ check("Explore page scripts work and its characters can be tapped", scriptsOk(xp
 check("Explore from an Explore page, then Back twice to the word page", o.html[2].includes('<div class="big" data-look>会议</div>') && o.html[3].includes('<div class="big" data-look>议</div>') && o.html[4].includes('class="hanzi" data-look>晚上<'));
 check("Explore on a radical shows the radical", o.html[5].includes("<h2>Radical</h2>") && o.html[5].includes("Water"));
 check("Listen on the Explore page speaks", o.speak.includes("议"));
+check("Explore on a radical lists all its characters by level", o.html[5].includes("This is a radical") && o.html[5].includes("Characters with 氵") && o.html[5].includes('<span class="tile"><b data-look>河</b>') && o.html[5].includes('<div class="lvl">HSK 1-2</div>'));
+check("Explore on a character shows its radical and the other characters with it", xp.includes("<h2>Radical</h2>") && xp.includes('<b data-look>讠</b>') && xp.includes("Other characters with 讠") && xp.includes('<b data-look>说</b>') && !xp.includes('<span class="tile"><b data-look>议</b>'));
+check("Explore on a word shows the radical of each character", o.html[2].includes("<h2>Radicals</h2>") && o.html[2].includes('<b data-look>会</b> <span class="mn">→</span> <b data-look>人</b>'));
+check("radical-chars.json is saved for next time", fs.existsSync(path.join(ld, "radical-chars.json")));
+o = await run("Hourly Words.js", { dir: ld, query: { word: "晚上" }, web: ["explore:当"] });
+check("a character whose radical is not one of the 50 has no radical section", !o.html[1].includes("<h2>Radical") && o.html[1].includes("<h2>Meaning</h2>"));
 check("Hourly Words and Radicals have the same dictionary code", (() => {
   const block = f => { const t = fs.readFileSync(path.join(ROOT, "scriptable", f), "utf8"); return t.slice(t.indexOf("// ---------- tap a character"), t.indexOf("mainPage());\n}") + 13); };
   return block("Hourly Words.js").length > 500 && block("Hourly Words.js") === block("Radicals.js");
@@ -382,16 +388,29 @@ check("Write 2 also tags radicals", o.html[0].includes('<span class="lv">Radical
 const radH = order[radPos];
 o = await run("Write.js", { dir, web: ["word:" + grp[1], "rad:" + radH, "back", "rad:不是部首"] });
 check("a radical page has no Radical: row", !o.html[0].includes("Radical:</span>"));
-check("an example character shows its radical from write-path.txt", o.html[1].includes("Radical:</span>") && o.html[1].includes('&quot;rad:' + radH + '&quot;'));
+const sheetsOf = h => JSON.parse((h.match(/var SHEETS = (.*?), LVN = /) || [])[1] || "[]");
+check("an example character shows its radical chip, which opens the info sheet", o.html[1].includes("Radical:</span>") && o.html[1].includes('onclick="openRad(0)"') && sheetsOf(o.html[1])[0].hanzi === radH);
+check("the sheet lists the characters with the radical and has a Write button", sheetsOf(o.html[1])[0].chars.some(c => c[0] === grp[1]) && sheetsOf(o.html[1])[0].own === false && o.html[1].includes('"Write " + r.hanzi'));
 check("tapping the radical chip opens the radical with its tag and examples", pageWord(o.html[2]) === JSON.stringify(radH) && o.html[2].includes('<span class="lv">Radical</span>') && o.html[2].includes("Examples:"));
 check("Back from the radical goes to the character", pageWord(o.html[3]) === JSON.stringify(grp[1]));
 check("a radical that is not the word's is ignored", o.html.length === 4);
 o = await run("Write.js", { dir, query: { word: "往", pinyin: "wǎng", meaning: "toward" }, web: ["rad:彳"] });
-check("a character from radicals.txt shows its radical with pinyin and name", o.html[0].includes('&quot;rad:彳&quot;') && o.html[0].includes("chì") && o.html[0].includes("Step"));
+check("a character shows its radical with pinyin and name", sheetsOf(o.html[0])[0].hanzi === "彳" && o.html[0].includes("chì") && o.html[0].includes("Step"));
 check("its radical opens with the tag and 3 examples", pageWord(o.html[1]) === '"彳"' && o.html[1].includes('<span class="lv">Radical</span>') && o.html[1].includes('&quot;word:很&quot;'));
-o = await run("Write 2.js", { dir: newDir(), query: { word: "谢谢" }, web: ["rad:谢"] });
+o = await run("Write 2.js", { dir: newDir(), query: { word: "当" }, web: ["rad:小"] });
 check("a word with no radical data gets a ? chip with a note", o.html[0].includes('class="chip none"') && o.html[0].includes("This word has no radical data yet.") && o.html[0].includes('id="toast"'));
 check("the ? chip opens nothing", o.html.length === 1);
+// radical-chars.json: the 50 radicals of radicals.txt and the HSK characters with them
+const rcj = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "radical-chars.json"), "utf8")).radicals;
+const fifty = fs.readFileSync(path.join(ROOT, "scriptable", "radicals.txt"), "utf8").split("\n").filter(l => l.includes("|") && !l.startsWith("#")).map(l => l.split("|")[0].trim());
+check("radical-chars.json has only radicals from radicals.txt", Object.keys(rcj).every(r => fifty.includes(r)) && Object.keys(rcj).length >= 45);
+check("radical-chars.json: 问 间 闭 under 门, 谢 under 讠, 朋 under 月", ["问", "间", "闭"].every(c => rcj["门"].chars.some(e => e[0] === c)) && rcj["讠"].chars.some(e => e[0] === "谢") && rcj["月"].chars.some(e => e[0] === "朋"));
+o = await run("Write 2.js", { dir: newDir(), query: { word: "谢谢" }, web: ["char:请", "back", "char:不在"] });
+check("Write 2: 谢 shows 讠 from radical-chars.json", sheetsOf(o.html[0])[0].hanzi === "讠" && o.html[0].includes("Speech"));
+check("a character in the sheet opens to write, Back comes back", pageWord(o.html[1]) === '"请"' && pageWord(o.html[2]) === '"谢谢"');
+check("a character that is not in the sheet is ignored", o.html.length === 3);
+o = await run("Write 2.js", { dir: newDir(), query: { word: "门" }, web: ["char:问"] });
+check("a radical page has an All chip for its full list, without a Write button", o.html[0].includes('onclick="openRad(0)">All ') && sheetsOf(o.html[0])[0].own === true && pageWord(o.html[1]) === '"问"');
 o = await run("Write.js", { dir, offline: true });
 check("Write path works offline with the saved list", o.html.length === 1 && o.html[0].includes("CHARS = "));
 o = await run("Write.js", { dir: newDir(), offline: true });

@@ -92,6 +92,22 @@ async function loadRadicals() {
   return out;
 }
 
+// radical-chars.json: the 50 radicals, each with the HSK characters that have it
+// (from Make Me a Hanzi). Saved next to the scripts, renewed every 30 days.
+async function loadRadChars() {
+  const p = path("radical-chars.json");
+  let t = await readText(p);
+  if (!t || (Date.now() - fm.modificationDate(p).getTime()) / 86400000 > 30) {
+    const n = await download(REPO + "data/radical-chars.json");
+    try { if (n && JSON.parse(n).radicals) { save(p, n); t = n; } } catch (e) {}
+  }
+  let rads = {};
+  try { rads = JSON.parse(t || "{}").radicals || {}; } catch (e) {}
+  const of = {};
+  for (const r of Object.keys(rads)) for (const c of rads[r].chars || []) of[c[0]] = r;
+  return { rads, of };
+}
+
 async function loadWords(levels) {
   const words = [], byHanzi = {};
   const add = (w, lv) => {
@@ -195,9 +211,11 @@ async function getStrokes(c) {
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const forScript = v => JSON.stringify(v).replace(/</g, "\\u003c");
 
-// radicals: the radicals of the characters ([] = none in the data, null = no row,
-// because the word is a radical itself).
-function pageHTML(w, lib, strokes, levelName, canBack, theme, examples, radicals) {
+// radicals: the radicals of the characters, each with its characters for the info
+// sheet ([] = none in the data, null = no row, because the word is a radical itself).
+// self: the sheet of the word when it is a radical (the "All" chip after its examples).
+function pageHTML(w, lib, strokes, levelName, canBack, theme, examples, radicals, self) {
+  const sheets = radicals || (self ? [self] : []);
   const chars = hanOnly(w.hanzi).filter(c => strokes[c]);
   const meaning = w.short || (w.senses || [])[0] || "";
   const body = chars.length ? `
@@ -233,6 +251,24 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 .toast { position:fixed; left:50%; bottom:110px; transform:translateX(-50%); background:var(--ink); color:var(--bg);
   padding:8px 14px; border-radius:12px; font-size:14px; opacity:0; pointer-events:none; transition:opacity .2s; white-space:nowrap; }
 .toast.on { opacity:.92; }
+.chip.more { font-size:14px; color:var(--accent); }
+/* Radical info sheet */
+.sheetbox { position:fixed; inset:0; z-index:30; background:rgba(0,0,0,.3); display:none; align-items:flex-end; }
+.sheetbox.on { display:flex; }
+.sheet { position:relative; width:100%; background:var(--card); border-top:1px solid var(--line); border-radius:18px 18px 0 0; padding:18px 20px 34px; max-height:75vh; overflow:auto; }
+.sheet .x { position:absolute; top:10px; right:14px; width:36px; height:36px; border:none; background:none; color:var(--grey); font-size:28px; line-height:1; }
+.sheet .rh { display:flex; align-items:baseline; gap:12px; }
+.sheet .rc { font-size:48px; font-weight:600; line-height:1.1; }
+.sheet .rp { color:var(--accent); font-weight:600; font-size:20px; }
+.sheet .rn { color:var(--grey); font-size:17px; }
+.sheet h3 { font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--grey); margin:18px 0 6px; font-weight:600; }
+.sheet .lvl { font-size:13px; color:var(--grey); margin:10px 0 4px; }
+.sheet .cs { display:flex; flex-wrap:wrap; gap:6px; }
+.sheet .cs button { border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:12px; padding:4px 10px; font-family:inherit; text-align:center; min-width:62px; }
+.sheet .cs b { display:block; font-size:22px; font-weight:600; }
+.sheet .cs small { display:block; font-size:12px; color:var(--accent); }
+.sheet .cs i { display:block; font-size:11px; font-style:normal; color:var(--grey); max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sheet .wbtn { margin-top:18px; width:100%; font-size:16px; padding:12px; border-radius:14px; border:1px solid var(--line); background:var(--bg); color:var(--ink); }
 .round { margin-top:18px; display:flex; align-items:center; justify-content:space-between; }
 .dots { display:flex; gap:6px; } .dot { width:28px; height:6px; border-radius:3px; background:var(--line); }
 .dot.on { background:var(--ink); } .dot.ok { background:var(--soft); }
@@ -262,10 +298,11 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 <div class="top"><span>Write</span><span class="right">${levelName ? `<span class="lv">${esc(levelName)}</span>` : ""}<button class="theme" id="theme" onclick="nextTheme()">${THEME_LABEL[theme]}</button></span></div>
 <div class="word"><span class="pinyin">${esc(w.pinyin)}</span><button class="play" onclick="say(${esc(JSON.stringify(w.hanzi))})">Listen</button></div>
 <div class="mean">${esc(meaning)}</div>
-${(examples || []).length ? `<div class="ex"><span>Examples:</span>${examples.map(e => `<button class="chip" onclick="act(${esc(JSON.stringify("word:" + e.hanzi))})">${esc(e.hanzi)}${e.pinyin ? ` <small>${esc(e.pinyin)}</small>` : ""}</button>`).join("")}</div>` : ""}
-${radicals ? `<div class="ex rads"><span>Radical:</span>${radicals.length ? radicals.map(r => `<button class="chip" onclick="act(${esc(JSON.stringify("rad:" + r.hanzi))})">${esc(r.hanzi)}${r.pinyin ? ` <small>${esc(r.pinyin)}</small>` : ""}${r.short ? ` ${esc(r.short)}` : ""}</button>`).join("") : `<button class="chip none" onclick="toast('This word has no radical data yet.')">?</button>`}</div>` : ""}
+${(examples || []).length ? `<div class="ex"><span>Examples:</span>${examples.map(e => `<button class="chip" onclick="act(${esc(JSON.stringify("word:" + e.hanzi))})">${esc(e.hanzi)}${e.pinyin ? ` <small>${esc(e.pinyin)}</small>` : ""}</button>`).join("")}${self && self.chars.length > examples.length ? `<button class="chip more" onclick="openRad(0)">All ${self.chars.length}</button>` : ""}</div>` : ""}
+${radicals ? `<div class="ex rads"><span>Radical:</span>${radicals.length ? radicals.map((r, i) => `<button class="chip" onclick="openRad(${i})">${esc(r.hanzi)}${r.pinyin ? ` <small>${esc(r.pinyin)}</small>` : ""}${r.short ? ` ${esc(r.short)}` : ""}</button>`).join("") : `<button class="chip none" onclick="toast('This word has no radical data yet.')">?</button>`}</div>` : ""}
 </div>
 <div class="toast" id="toast"></div>
+<div class="sheetbox" id="radbox" onclick="if (event.target === this) closeRad()"><div class="sheet" id="radsheet"></div></div>
 ${body}
 <div class="bar">
   <button id="back" onclick="act('back')" ${canBack ? "" : "disabled"}>Back</button>
@@ -305,6 +342,26 @@ function voice(t) {
 }
 function say(t) { var now = Date.now(); if (now - lastSay < 400) return; lastSay = now; voice(t); }
 function act(a) { location.href = "hanzi://" + encodeURIComponent(a); }
+// Radical info sheet: the radical, its name, and the HSK characters with it.
+// Tap a character to write it; "Write" writes the radical itself.
+var SHEETS = ${forScript(sheets.map(r => ({ hanzi: r.hanzi, pinyin: r.pinyin, name: r.short, chars: r.chars, own: !radicals })))}, LVN = ${forScript(LEVEL_NAMES)};
+function openRad(i) {
+  var r = SHEETS[i]; if (!r) return;
+  var s = el("radsheet"); s.innerHTML = "";
+  function add(parent, tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; parent.appendChild(n); return n; }
+  var x = add(s, "button", "x", "×"); x.setAttribute("aria-label", "Close"); x.onclick = closeRad;
+  var h = add(s, "div", "rh"); add(h, "span", "rc", r.hanzi); add(h, "span", "rp", r.pinyin); add(h, "span", "rn", r.name);
+  add(s, "h3", "", "Characters with " + r.hanzi + " (" + r.chars.length + ")");
+  var last = null, box = null;
+  r.chars.forEach(function (c) {
+    if (c[3] !== last || !box) { last = c[3]; if (LVN[c[3]]) add(s, "div", "lvl", LVN[c[3]]); box = add(s, "div", "cs"); }
+    var b = add(box, "button"); add(b, "b", "", c[0]); add(b, "small", "", c[1]); add(b, "i", "", c[2]);
+    b.onclick = function () { closeRad(); act("char:" + c[0]); };
+  });
+  if (!r.own) { var wb = add(s, "button", "wbtn", "Write " + r.hanzi); wb.onclick = function () { closeRad(); act("rad:" + r.hanzi); }; }
+  el("radbox").classList.add("on"); s.scrollTop = 0;
+}
+function closeRad() { el("radbox").classList.remove("on"); }
 var toastTimer = null;
 function toast(t) {
   var b = document.getElementById("toast");
@@ -517,13 +574,21 @@ if (!pack.words.length && !single) {
     return rads[w.hanzi] || [];
   }
   const isRadical = w => !!(w.radical || rads[w.hanzi]);
-  // The radical a character belongs to: its group in write-path.txt, else the
-  // radicals.txt line that lists it as an example. null when it is in neither.
+  const rc = await loadRadChars();
+  // A radical with its pinyin, name and characters (for the info sheet).
+  function radEntry(r) {
+    const info = RAD_INFO[r] || rc.rads[r] && { pinyin: rc.rads[r].pinyin, short: rc.rads[r].name } || pack.byHanzi[r] || {};
+    const chars = rc.rads[r] ? rc.rads[r].chars : examplesFor({ hanzi: r }).map(e => [e.hanzi, e.pinyin, e.short, ""]);
+    return { hanzi: r, pinyin: info.pinyin || "", short: info.short || "", chars };
+  }
+  // Which of the 50 radicals a character has: radical-chars.json, else its group in
+  // write-path.txt, else the radicals.txt line that lists it. null when it is in none.
   function radicalOf(c) {
+    if (rc.of[c]) return radEntry(rc.of[c]);
     const g = (pack.groups || []).find(g => g.slice(1).includes(c));
-    if (g) return pack.byHanzi[g[0]];
+    if (g) return radEntry(g[0]);
     const r = Object.keys(rads).find(r => rads[r].some(e => e.hanzi === c));
-    return r ? RAD_INFO[r] : null;
+    return r ? radEntry(r) : null;
   }
   // One entry per radical of the word's characters (no repeats).
   function radicalsFor(w) {
@@ -538,7 +603,7 @@ if (!pack.words.length && !single) {
     const strokes = {};
     for (const c of hanOnly(w.hanzi)) { const d = await getStrokes(c); if (d) strokes[c] = d; }
     const tag = isRadical(w) ? "Radical" : MODE === "path" || w.level === "one" ? "" : w.level === "mine" ? LEVEL_NAMES.mine : levelName;
-    return pageHTML(w, lib, strokes, tag, at > 0, theme, isRadical(w) ? examplesFor(w) : [], isRadical(w) ? null : radicalsFor(w));
+    return pageHTML(w, lib, strokes, tag, at > 0, theme, isRadical(w) ? examplesFor(w) : [], isRadical(w) ? null : radicalsFor(w), isRadical(w) ? radEntry(w.hanzi) : null);
   }
   // Path: st.pos is the item to show next time. Finishing a word moves it on,
   // so closing Write after a word starts at the next one.
@@ -592,6 +657,16 @@ if (!pack.words.length && !single) {
       const r = radicalsFor(w).find(x => x.hanzi === a.slice(4));
       if (!r) return;
       w = Object.assign({ level: "one" }, pack.byHanzi[r.hanzi] || r, { extra: true, radical: true });
+      seen.length = at + 1; seen.push(w); at = seen.length - 1;
+      await wv.loadHTML(await pageFor(w));
+    } else if (a.startsWith("char:")) {
+      // A character from the radical sheet: write it now. Back comes back here.
+      const h = a.slice(5);
+      const lists = isRadical(w) ? [radEntry(w.hanzi)] : radicalsFor(w);
+      let e = null;
+      for (const r of lists) e = e || r.chars.find(c => c[0] === h);
+      if (!e) return;
+      w = Object.assign({ level: "one" }, pack.byHanzi[h] || { hanzi: e[0], pinyin: e[1], short: e[2] }, { extra: true });
       seen.length = at + 1; seen.push(w); at = seen.length - 1;
       await wv.loadHTML(await pageFor(w));
     } else if (a === "back") {

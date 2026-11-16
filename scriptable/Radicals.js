@@ -457,24 +457,64 @@ function dictWordsWith(dict, word, skip, max) {
   }
   return out;
 }
-// The radicals.txt line for a radical: { name, pinyin, examples }.
+// radical-chars.json: the 50 radicals of radicals.txt, each with the HSK characters
+// that have it (from Make Me a Hanzi). Saved next to the scripts, renewed every 30 days.
+const RADS_URL = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/data/radical-chars.json";
+let radData = null;
+async function getRadData() {
+  if (radData) return radData;
+  const fd = FileManager.iCloud(), p = fd.joinPath(fd.documentsDirectory(), "radical-chars.json");
+  let t = null;
+  try { if (fd.fileExists(p)) { await fd.downloadFileFromiCloud(p); t = fd.readString(p); } } catch (e) {}
+  if (!t || (Date.now() - fd.modificationDate(p).getTime()) / 86400000 > 30) {
+    try {
+      const r = new Request(RADS_URL);
+      r.timeoutInterval = 30;
+      const n = await r.loadString();
+      if (n && JSON.parse(n).radicals) { fd.writeString(p, n); t = n; }
+    } catch (e) {}
+  }
+  let rads = {};
+  try { rads = JSON.parse(t || "{}").radicals || {}; } catch (e) {}
+  const of = {};
+  for (const r of Object.keys(rads)) for (const c of rads[r].chars || []) of[c[0]] = r;
+  return (radData = { rads, of });
+}
+// The radical part of Explore, only for the 50 radicals. A radical: its characters.
+// One character: its radical and the other characters with it. A longer word: the
+// radical of each character. null when no character has one of the 50.
 async function radicalInfo(word) {
-  try {
-    const fd = FileManager.iCloud(), p = fd.joinPath(fd.documentsDirectory(), "radicals.txt");
-    if (!fd.fileExists(p)) return null;
-    await fd.downloadFileFromiCloud(p);
-    for (const l of fd.readString(p).split(/\r?\n/)) {
-      const q = l.trim().split(/\s*[|\t]\s*/);
-      if (q[0] === word && !l.trim().startsWith("#")) return { pinyin: q[1] || "", name: q[2] || "", examples: (q[4] || "").split(";").map(e => e.trim()).filter(Boolean) };
-    }
-  } catch (e) {}
-  return null;
+  const { rads, of } = await getRadData();
+  const chars = Array.from(word).filter(c => /\p{Script=Han}/u.test(c));
+  if (chars.length === 1) {
+    const c = chars[0], r = rads[c] ? c : of[c];
+    if (!r) return null;
+    return { self: r === c, hanzi: r, pinyin: rads[r].pinyin, name: rads[r].name, chars: rads[r].chars.filter(e => e[0] !== c) };
+  }
+  const list = chars.filter(c => of[c] || rads[c]).map(c => { const r = rads[c] ? c : of[c]; return { char: c, hanzi: r, pinyin: rads[r].pinyin, name: rads[r].name }; });
+  return list.length ? { list } : null;
+}
+// Characters with a radical, as small tiles grouped by level. Tap one for its card.
+function radTiles(chars) {
+  let out = "", last = null;
+  for (const e of chars) {
+    if (e[3] !== last) { out += (last === null ? "" : "</div>") + (LOOK_LEVELS[e[3]] ? `<div class="lvl">${LOOK_LEVELS[e[3]]}</div>` : "") + `<div class="tiles">`; last = e[3]; }
+    out += `<span class="tile"><b data-look>${lookEsc(e[0])}</b><small>${lookEsc(e[1])}</small><i>${lookEsc(e[2])}</i></span>`;
+  }
+  return out ? out + "</div>" : "";
+}
+function radHTML(rad) {
+  if (!rad) return "";
+  const line = r => `<div class="wr"><b data-look>${lookEsc(r.hanzi)}</b> <span class="py">${lookEsc(r.pinyin)}</span> <span class="mn">${lookEsc(r.name)}</span></div>`;
+  if (rad.list) return `<h2>Radicals</h2>${rad.list.map(r => `<div class="wr"><b data-look>${lookEsc(r.char)}</b> <span class="mn">→</span> <b data-look>${lookEsc(r.hanzi)}</b> <span class="py">${lookEsc(r.pinyin)}</span> <span class="mn">${lookEsc(r.name)}</span></div>`).join("")}`;
+  if (rad.self) return `<h2>Radical</h2><div class="wr">This is a radical: <span class="mn">${lookEsc(rad.name)}</span> <span class="py">${lookEsc(rad.pinyin)}</span></div>${rad.chars.length ? `<h2>Characters with ${lookEsc(rad.hanzi)} (${rad.chars.length})</h2>${radTiles(rad.chars)}` : ""}`;
+  return `<h2>Radical</h2>${line(rad)}${rad.chars.length ? `<h2>Other characters with ${lookEsc(rad.hanzi)} (${rad.chars.length})</h2>${radTiles(rad.chars)}` : ""}`;
 }
 function exploreHTML(word, words, dict, rad) {
   const entries = dict ? dictEntries(dict, word) : [];
   const own = words.find(w => w.hanzi === word);
-  const pinyin = own ? own.pinyin : (entries[0] || {}).pinyin || "";
-  const senses = own && own.senses && own.senses.length ? own.senses : entries.length ? entries[0].meaning.split(/;\s*/) : [];
+  const pinyin = own ? own.pinyin : (entries[0] || {}).pinyin || (rad && rad.self ? rad.pinyin : "");
+  const senses = own && own.senses && own.senses.length ? own.senses : entries.length ? entries[0].meaning.split(/;\s*/) : rad && rad.self ? [rad.name] : [];
   const seen = new Set([word]);
   const hsk = words.filter(w => w.hanzi.includes(word) && !/…/.test(w.hanzi) && !seen.has(w.hanzi) && seen.add(w.hanzi))
     .sort((a, b) => a.hanzi.length - b.hanzi.length).slice(0, 12);
@@ -505,6 +545,11 @@ ol { margin:0; padding-left:24px; } li { margin:3px 0; }
 .ex { border-left:3px solid var(--accent); padding:4px 0 4px 14px; margin-bottom:12px; }
 .ex .zh { font-size:20px; } .ex .py { font-size:15px; font-weight:500; }
 .none { color:var(--grey); }
+.lvl { font-size:13px; color:var(--grey); margin:10px 0 4px; }
+.tiles { display:flex; flex-wrap:wrap; gap:6px; }
+.tile { border:1px solid var(--line); background:var(--card); border-radius:12px; padding:4px 10px; text-align:center; min-width:62px; }
+.tile b { display:block; font-size:22px; font-weight:600; } .tile small { display:block; font-size:12px; color:var(--accent); }
+.tile i { display:block; font-size:11px; font-style:normal; color:var(--grey); max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .bar { position:fixed; left:0; right:0; bottom:0; padding:12px 20px 34px; background:var(--bg); border-top:1px solid var(--line); }
 .bar button { width:100%; font-size:17px; padding:14px; border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
 /* Tap a character: dictionary card */
@@ -522,7 +567,7 @@ ol { margin:0; padding-left:24px; } li { margin:3px 0; }
 <div class="row"><span class="py">${lookEsc(pinyin)}</span>${listen(word)} ${write}${own && LOOK_LEVELS[own.level] ? ` <span class="tag">${LOOK_LEVELS[own.level]}</span>` : ""}</div>
 <h2>Meaning</h2>
 ${senses.length ? `<ol>${senses.map(s => `<li>${lookEsc(s)}</li>`).join("")}</ol>` : `<div class="none">Not in the dictionary.</div>`}
-${rad ? `<h2>Radical</h2><div>${lookEsc(rad.name)} <span class="py">${lookEsc(rad.pinyin)}</span></div>${rad.examples.length ? `<div class="mn" data-look>${lookEsc(rad.examples.join(" · "))}</div>` : ""}` : ""}
+${radHTML(rad)}
 ${hsk.length ? `<h2>Words with ${lookEsc(word)} in your lists</h2>${hsk.map(row).join("")}` : ""}
 ${more.length ? `<h2>More words with ${lookEsc(word)}</h2>${more.map(row).join("")}` : ""}
 ${exs.length ? `<h2>Examples</h2>${exs.map(e => `<div class="ex"><div class="zh" data-look>${lookEsc(e.zh)}</div><div class="py">${lookEsc(e.pinyin)}</div><div class="mn">${lookEsc(e.en)}</div></div>`).join("")}` : ""}

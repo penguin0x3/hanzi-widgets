@@ -2,11 +2,11 @@
 
 Learn Chinese without opening an app. New words and radicals show up on your iPhone and Mac by themselves.
 
-- **Hourly Words** (iPhone Lock Screen or Home Screen): one word at a time, with hanzi, pinyin and an English meaning. Tap it for all meanings, the measure word, an example sentence and sound. Mark words as known so they show up less. Tap any Chinese character on the word page (the word or the example sentence) for a dictionary card: the longest word that starts there, with pinyin, meaning, Listen, Write and **Explore**. Explore opens a full dictionary page: all meanings, words with it from your lists and from the dictionary, example sentences, and the radical if it is one. Back goes through the pages you opened. A word you tap comes back the next day for review (then after 3 and 7 days if you tap it again).
+- **Hourly Words** (iPhone Lock Screen or Home Screen): one word at a time, with hanzi, pinyin and an English meaning. Tap it for all meanings, the measure word, an example sentence and sound. Mark words as known so they show up less. Tap any Chinese character on the word page (the word or the example sentence) for a dictionary card: the longest word that starts there, with pinyin, meaning, Listen, Write and **Explore**. Explore opens a full dictionary page: all meanings, words with it from your lists and from the dictionary, example sentences, and its radical (one of the 50) with the other HSK characters that have it. Back goes through the pages you opened. A word you tap comes back the next day for review (then after 3 and 7 days if you tap it again).
 - **Levels:** HSK 1-2, HSK 3, HSK 4, HSK 5. Lists download by themselves from this repo and work offline after that.
 - **Add Word:** share a Chinese word from any app to add it to your own list. Pinyin and meaning are filled in.
 - **Radicals** (iPhone Home Screen): one of 50 common radicals, with 3 example characters. Tap it for a word and an example sentence with sound for each character. Tap any character there for the same dictionary card.
-- **Write** (iPhone, in Scriptable): practice writing characters with your finger, with 20 radicals and the simplest words in a random order: each radical always comes with 3 characters that have it, then 1 or 2 other words (list in `scriptable/write-path.txt`, radicals marked with `| radical`). Trace each character twice, then write it from memory. **Write 2** does the same with random words from your HSK levels. Wrong strokes turn red. **Back** goes to the word before (Next then goes forward again), **Show strokes** plays the stroke order in every round, also after you finish, a radical gets a **Radical** tag and a row with its 3 example characters (tap one to write it, Back goes to the radical), every other character gets a **Radical:** row with the radical it belongs to (tap it to write the radical, Back comes back; a **?** chip means the radical is not in the data yet), and the button at the top right picks the colours: Auto (follows the iPhone), Light or Dark. It only reads the word lists, so the widgets are not changed. The **Write** button on the word and radical pages opens Write on that one character or word.
+- **Write** (iPhone, in Scriptable): practice writing characters with your finger, with 20 radicals and the simplest words in a random order: each radical always comes with 3 characters that have it, then 1 or 2 other words (list in `scriptable/write-path.txt`, radicals marked with `| radical`). Trace each character twice, then write it from memory. **Write 2** does the same with random words from your HSK levels. Wrong strokes turn red. **Back** goes to the word before (Next then goes forward again), **Show strokes** plays the stroke order in every round, also after you finish, a radical gets a **Radical** tag and a row with its 3 example characters (tap one to write it, Back goes to the radical), every other character gets a **Radical:** row with the radical it belongs to (tap it for a sheet with the radical's name and all HSK characters that have it, by level; tap a character to write it, or **Write** for the radical; a **?** chip means its radical is not one of the 50), a radical page has an **All** chip for the same sheet, and the button at the top right picks the colours: Auto (follows the iPhone), Light or Dark. It only reads the word lists, so the widgets are not changed. The **Write** button on the word and radical pages opens Write on that one character or word.
 - **MacHanzi** (Mac, optional): the same words in the menu bar, plus a word card and a radical card on the desktop.
 
 Setup guide: [GUIDE.md](GUIDE.md)
@@ -16,9 +16,9 @@ Setup guide: [GUIDE.md](GUIDE.md)
 | Folder | Files |
 |---|---|
 | `scriptable/` | `Install.js` (start here), `Hourly Words.js`, `Add Word.js`, `Radicals.js`, `Write.js`, `Write 2.js`, `write-path.txt`, `radicals.txt`, `files.txt` (the list Install downloads) |
-| `data/` | `hsk1-2.json`, `hsk3.json`, `hsk4.json`, `hsk5.json` (word lists), `dict.txt` (dictionary for Add Word) |
+| `data/` | `hsk1-2.json`, `hsk3.json`, `hsk4.json`, `hsk5.json` (word lists), `dict.txt` (dictionary for Add Word and the dictionary card), `radical-chars.json` (the 50 radicals and the HSK characters with each) |
 | `mac/` | `main.swift`, `Info.plist`, `build.sh` (MacHanzi source) |
-| `tools/` | `build_data.py` (makes the files in `data/` from the sources below) |
+| `tools/` | `build_data.py` (makes the word lists and `dict.txt` from the sources below), `build_radicals.py` (makes `radical-chars.json`) |
 | `tests/` | `test-scripts.mjs`, `test-radicals.mjs` (run the scripts in Node with fake Scriptable APIs) |
 
 Product direction for this project: [direction.md](direction.md)
@@ -43,9 +43,10 @@ MacHanzi downloads the word lists from this repo. Choose levels in the menu: **L
 - **Example sentences:** [Tatoeba](https://tatoeba.org), licensed CC BY 2.0 FR. Each example keeps its Tatoeba sentence id in `src`.
 - **Sound:** Listen uses the Chinese voice built into iPhone.
 - **Colours:** green (#108652, #97DF67) on a light mint background (#EEF7E8), with a dark moss green dark mode (#0E1F16).
+- **Radicals of characters:** the `radical` field of [Make Me a Hanzi](https://github.com/skishore/makemeahanzi) `dictionary.txt`, kept only for the 50 radicals in `radicals.txt` (1142 of the 1723 HSK characters).
 - **Writing:** [Hanzi Writer](https://hanziwriter.org) (MIT), with stroke data from [Make Me a Hanzi](https://github.com/skishore/makemeahanzi) (Arphic Public License). Write downloads them the first time and saves them in iCloud Drive > Scriptable > hanzi-write.
 
-To rebuild the data: download the sources listed at the top of `tools/build_data.py`, then run `python3 tools/build_data.py <sources> <my list> data`.
+To rebuild the data: download the sources listed at the top of `tools/build_data.py`, then run `python3 tools/build_data.py <sources> <my list> data`. Then run `python3 tools/build_radicals.py <makemeahanzi dictionary.txt> data`.
 
 ## Change your own words
 
@@ -58,6 +59,7 @@ Use **Add Word**, or edit `mywords.txt` in iCloud Drive > Scriptable. One word p
 - **2026-11-16:** tap a character in Hourly Words or Radicals for a dictionary card (CC-CEDICT from `dict.txt`, downloaded the first time, then offline). Tests: 150 + 34 pass.
 - **2026-11-16:** the dictionary card got Explore (full dictionary page with Back) and a small close button. Tests: 159 + 36 pass.
 - **2026-11-16:** Write and Write 2 show the radical of each character under the meaning (from `write-path.txt` or `radicals.txt`). Tap it to write the radical; a **?** chip shows "This word has no radical data yet." Tests: 168 + 36 pass.
+- **2026-11-16:** the radical chip in Write opens an info sheet (name, all HSK characters with it by level, Write button) instead of jumping to the radical. Explore shows the radical for every character. Data: `radical-chars.json` from Make Me a Hanzi, only the 50 radicals. Tests: 180 + 36 pass.
 - **Next step:** run Install on the iPhone to get the new `Write.js` and `Write 2.js`, and try them on a real word.
 
 ## License
