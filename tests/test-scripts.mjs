@@ -276,9 +276,9 @@ check("Explore on a word shows the radical of each character", o.html[2].include
 check("radical-chars.json is saved for next time", fs.existsSync(path.join(ld, "radical-chars.json")));
 o = await run("Hourly Words.js", { dir: ld, query: { word: "晚上" }, web: ["explore:当"] });
 check("a character whose radical is not one of the 50 has no radical section", !o.html[1].includes("<h2>Radical") && o.html[1].includes("<h2>Meaning</h2>"));
-check("Hourly Words and Radicals have the same dictionary code", (() => {
+check("Hourly Words, Radicals and Write have the same dictionary code", (() => {
   const block = f => { const t = fs.readFileSync(path.join(ROOT, "scriptable", f), "utf8"); return t.slice(t.indexOf("// ---------- tap a character"), t.indexOf("mainPage());\n}") + 13); };
-  return block("Hourly Words.js").length > 500 && block("Hourly Words.js") === block("Radicals.js");
+  return block("Hourly Words.js").length > 500 && ["Radicals.js", "Write.js", "Write 2.js"].every(f => block(f) === block("Hourly Words.js"));
 })());
 
 // ---------- menu ----------
@@ -400,6 +400,16 @@ check("its radical opens with the tag and 3 examples", pageWord(o.html[1]) === '
 o = await run("Write 2.js", { dir: newDir(), query: { word: "当" }, web: ["rad:小"] });
 check("a word with no radical data gets a ? chip with a note", o.html[0].includes('class="chip none"') && o.html[0].includes("This word has no radical data yet.") && o.html[0].includes('id="toast"'));
 check("the ? chip opens nothing", o.html.length === 1);
+// Explore in Write: dictionary pages in frames over the writing page, which is not reloaded
+o = await run("Write 2.js", { dir: newDir(), query: { word: "谢谢" }, web: ["explore:谢", "look:1:谢谢", "explore:谢谢", "xback", "xback", 'write:["请","qǐng","please"]', "back", "explore:abc"] });
+const xjs = o.js.filter(j => j.startsWith("openExplore(")).map(j => JSON.parse(j.slice(12, -1)));
+check("Write has an Explore button next to Listen", /Listen<\/button><button class="play" id="explore" onclick="act\(&quot;explore:谢谢&quot;\)">Explore</.test(o.html[0]) && scriptsOk(o.html[0]));
+check("Explore opens the dictionary page over the writing page, not a new page", xjs.length === 2 && xjs[0].includes('<div class="big" data-look>谢</div>') && xjs[0].includes("Other characters with 讠") && xjs[1].includes('<div class="big" data-look>谢谢</div>'));
+check("the Explore page sends its actions through Write", xjs[0].includes("window.parent.act(a)") && scriptsOk(xjs[0]));
+check("a tapped character's card goes to the Explore page on top", o.js.some(j => j.startsWith("showCard(") && j.includes('"word":"谢谢"')) && o.html[0].includes("f.contentWindow.showCard(d)"));
+check("Back closes the Explore pages one by one, the writing page stays", o.js.filter(j => j === "closeExplore()").length === 2 && pageWord(o.html[1]) === '"请"');
+check("Write on a card opens that word, Back comes back", pageWord(o.html[2]) === '"谢谢"' && o.html.length === 3);
+check("Explore with no Chinese is ignored", xjs.length === 2);
 // radical-chars.json: the 50 radicals of radicals.txt and the HSK characters with them
 const rcj = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "radical-chars.json"), "utf8")).radicals;
 const fifty = fs.readFileSync(path.join(ROOT, "scriptable", "radicals.txt"), "utf8").split("\n").filter(l => l.includes("|") && !l.startsWith("#")).map(l => l.split("|")[0].trim());

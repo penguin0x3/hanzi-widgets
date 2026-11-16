@@ -251,6 +251,8 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 .toast { position:fixed; left:50%; bottom:110px; transform:translateX(-50%); background:var(--ink); color:var(--bg);
   padding:8px 14px; border-radius:12px; font-size:14px; opacity:0; pointer-events:none; transition:opacity .2s; white-space:nowrap; }
 .toast.on { opacity:.92; }
+/* Explore: a dictionary page in a frame over the writing page, so the writing stays as it is */
+.xf { position:fixed; inset:0; width:100%; height:100%; border:0; z-index:50; background:var(--bg); }
 .chip.more { font-size:14px; color:var(--accent); }
 /* Radical info sheet */
 .sheetbox { position:fixed; inset:0; z-index:30; background:rgba(0,0,0,.3); display:none; align-items:flex-end; }
@@ -296,7 +298,7 @@ body { margin:0; padding:20px 20px 120px; background:var(--bg); color:var(--ink)
 </style></head><body>
 <div class="head">
 <div class="top"><span>Write</span><span class="right">${levelName ? `<span class="lv">${esc(levelName)}</span>` : ""}<button class="theme" id="theme" onclick="nextTheme()">${THEME_LABEL[theme]}</button></span></div>
-<div class="word"><span class="pinyin">${esc(w.pinyin)}</span><button class="play" onclick="say(${esc(JSON.stringify(w.hanzi))})">Listen</button></div>
+<div class="word"><span class="pinyin">${esc(w.pinyin)}</span><button class="play" onclick="say(${esc(JSON.stringify(w.hanzi))})">Listen</button><button class="play" id="explore" onclick="act(${esc(JSON.stringify("explore:" + w.hanzi))})">Explore</button></div>
 <div class="mean">${esc(meaning)}</div>
 ${(examples || []).length ? `<div class="ex"><span>Examples:</span>${examples.map(e => `<button class="chip" onclick="act(${esc(JSON.stringify("word:" + e.hanzi))})">${esc(e.hanzi)}${e.pinyin ? ` <small>${esc(e.pinyin)}</small>` : ""}</button>`).join("")}${self && self.chars.length > examples.length ? `<button class="chip more" onclick="openRad(0)">All ${self.chars.length}</button>` : ""}</div>` : ""}
 ${radicals ? `<div class="ex rads"><span>Radical:</span>${radicals.length ? radicals.map((r, i) => `<button class="chip" onclick="openRad(${i})">${esc(r.hanzi)}${r.pinyin ? ` <small>${esc(r.pinyin)}</small>` : ""}${r.short ? ` ${esc(r.short)}` : ""}</button>`).join("") : `<button class="chip none" onclick="toast('This word has no radical data yet.')">?</button>`}</div>` : ""}
@@ -342,6 +344,16 @@ function voice(t) {
 }
 function say(t) { var now = Date.now(); if (now - lastSay < 400) return; lastSay = now; voice(t); }
 function act(a) { location.href = "hanzi://" + encodeURIComponent(a); }
+// Explore pages open in frames on top of the writing page. Back closes the top one,
+// so after the last Back you are where you were: same round, same strokes.
+var xframes = [];
+function openExplore(html) {
+  var f = document.createElement("iframe"); f.className = "xf"; f.srcdoc = html;
+  document.body.appendChild(f); xframes.push(f);
+}
+function closeExplore() { var f = xframes.pop(); if (f) f.remove(); }
+// The dictionary card belongs to the Explore page on top.
+function showCard(d) { var f = xframes[xframes.length - 1]; if (f && f.contentWindow && f.contentWindow.showCard) f.contentWindow.showCard(d); }
 // Radical info sheet: the radical, its name, and the HSK characters with it.
 // Tap a character to write it; "Write" writes the radical itself.
 var SHEETS = ${forScript(sheets.map(r => ({ hanzi: r.hanzi, pinyin: r.pinyin, name: r.short, chars: r.chars, own: !radicals })))}, LVN = ${forScript(LEVEL_NAMES)};
@@ -525,6 +537,269 @@ if (CHARS.length) {
 </body></html>`;
 }
 
+// ---------- tap a character: dictionary card ----------
+// The same block is in Hourly Words, Radicals and Write. Words come from CC-CEDICT in dict.txt
+// (the file Add Word uses, about 7 MB). It downloads the first time you tap a character.
+const DICT_URL = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/data/dict.txt";
+let dictText = null;
+async function getDict() {
+  if (dictText) return dictText;
+  const fd = FileManager.iCloud(), p = fd.joinPath(fd.documentsDirectory(), "dict.txt");
+  try { if (fd.fileExists(p)) { await fd.downloadFileFromiCloud(p); dictText = fd.readString(p); } } catch (e) {}
+  if (!dictText || dictText.length < 100000) {
+    try {
+      const r = new Request(DICT_URL);
+      r.timeoutInterval = 60;
+      const t = await r.loadString();
+      if (t && t.length > 100000) { fd.writeString(p, t); dictText = t; }
+    } catch (e) {}
+  }
+  return dictText && dictText.length > 100000 ? dictText : "";
+}
+// Every "word<TAB>pinyin<TAB>meanings" line for a word (some words have 2 or 3 readings).
+function dictEntries(dict, word) {
+  const out = [];
+  let i = dict.startsWith(word + "\t") ? 0 : dict.indexOf("\n" + word + "\t");
+  while (i >= 0 && out.length < 3) {
+    const start = dict[i] === "\n" ? i + 1 : i;
+    const end = dict.indexOf("\n", start);
+    const p = dict.slice(start, end < 0 ? undefined : end).split("\t");
+    out.push({ pinyin: p[1] || "", meaning: p[2] || "" });
+    i = end < 0 ? -1 : dict.indexOf("\n" + word + "\t", end);
+  }
+  return out;
+}
+// The longest dictionary word that starts at the tapped character (up to 6 characters).
+async function lookUp(text) {
+  const chars = Array.from(text).slice(0, 6);
+  const dict = await getDict();
+  if (!dict) return { word: chars[0] || "", len: 1, entries: [], note: "The dictionary needs the internet the first time. Connect and tap again." };
+  for (let n = chars.length; n >= 1; n--) {
+    const word = chars.slice(0, n).join("");
+    const entries = dictEntries(dict, word);
+    if (entries.length) return { word, len: n, entries };
+  }
+  return { word: chars[0] || "", len: 1, entries: [], note: "Not in the dictionary." };
+}
+// The page sends "look:<id>:<characters from the tapped one>"; the card is filled in place.
+async function showLook(wv, a) {
+  const m = a.match(/^look:(\d+):(.*)$/);
+  if (!m) return;
+  const d = Object.assign({ id: Number(m[1]) }, await lookUp(m[2]));
+  await wv.evaluateJavaScript("showCard(" + JSON.stringify(d).replace(/</g, "\\u003c") + ")", false);
+}
+
+// ---------- Explore: the full dictionary page for a word ----------
+const LOOK_LEVELS = { "hsk1-2": "HSK 1-2", hsk3: "HSK 3", hsk4: "HSK 4", hsk5: "HSK 5", mine: "My words" };
+const lookEsc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// Short dictionary words that contain `word`: at most 4 characters, no names (they have capital pinyin).
+function dictWordsWith(dict, word, skip, max) {
+  const out = [];
+  let i = dict.indexOf(word), steps = 0;
+  while (i >= 0 && out.length < max && steps++ < 5000) {
+    const start = dict.lastIndexOf("\n", i) + 1, nl = dict.indexOf("\n", i), end = nl < 0 ? dict.length : nl;
+    const p = dict.slice(start, end).split("\t");
+    if (p[0] !== word && p[0].includes(word) && Array.from(p[0]).length <= 4 && !skip.has(p[0]) && p[1] && p[1][0] === p[1][0].toLowerCase()) {
+      out.push({ hanzi: p[0], pinyin: p[1], short: (p[2] || "").split(";")[0] });
+      skip.add(p[0]);
+    }
+    i = dict.indexOf(word, end);
+  }
+  return out;
+}
+// radical-chars.json: the 50 radicals of radicals.txt, each with the HSK characters
+// that have it (from Make Me a Hanzi). Saved next to the scripts, renewed every 30 days.
+const RADS_URL = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/data/radical-chars.json";
+let radData = null;
+async function getRadData() {
+  if (radData) return radData;
+  const fd = FileManager.iCloud(), p = fd.joinPath(fd.documentsDirectory(), "radical-chars.json");
+  let t = null;
+  try { if (fd.fileExists(p)) { await fd.downloadFileFromiCloud(p); t = fd.readString(p); } } catch (e) {}
+  if (!t || (Date.now() - fd.modificationDate(p).getTime()) / 86400000 > 30) {
+    try {
+      const r = new Request(RADS_URL);
+      r.timeoutInterval = 30;
+      const n = await r.loadString();
+      if (n && JSON.parse(n).radicals) { fd.writeString(p, n); t = n; }
+    } catch (e) {}
+  }
+  let rads = {};
+  try { rads = JSON.parse(t || "{}").radicals || {}; } catch (e) {}
+  const of = {};
+  for (const r of Object.keys(rads)) for (const c of rads[r].chars || []) of[c[0]] = r;
+  return (radData = { rads, of });
+}
+// The radical part of Explore, only for the 50 radicals. A radical: its characters.
+// One character: its radical and the other characters with it. A longer word: the
+// radical of each character. null when no character has one of the 50.
+async function radicalInfo(word) {
+  const { rads, of } = await getRadData();
+  const chars = Array.from(word).filter(c => /\p{Script=Han}/u.test(c));
+  if (chars.length === 1) {
+    const c = chars[0], r = rads[c] ? c : of[c];
+    if (!r) return null;
+    return { self: r === c, hanzi: r, pinyin: rads[r].pinyin, name: rads[r].name, chars: rads[r].chars.filter(e => e[0] !== c) };
+  }
+  const list = chars.filter(c => of[c] || rads[c]).map(c => { const r = rads[c] ? c : of[c]; return { char: c, hanzi: r, pinyin: rads[r].pinyin, name: rads[r].name }; });
+  return list.length ? { list } : null;
+}
+// Characters with a radical, as small tiles grouped by level. Tap one for its card.
+function radTiles(chars) {
+  let out = "", last = null;
+  for (const e of chars) {
+    if (e[3] !== last) { out += (last === null ? "" : "</div>") + (LOOK_LEVELS[e[3]] ? `<div class="lvl">${LOOK_LEVELS[e[3]]}</div>` : "") + `<div class="tiles">`; last = e[3]; }
+    out += `<span class="tile"><b data-look>${lookEsc(e[0])}</b><small>${lookEsc(e[1])}</small><i>${lookEsc(e[2])}</i></span>`;
+  }
+  return out ? out + "</div>" : "";
+}
+function radHTML(rad) {
+  if (!rad) return "";
+  const line = r => `<div class="wr"><b data-look>${lookEsc(r.hanzi)}</b> <span class="py">${lookEsc(r.pinyin)}</span> <span class="mn">${lookEsc(r.name)}</span></div>`;
+  if (rad.list) return `<h2>Radicals</h2>${rad.list.map(r => `<div class="wr"><b data-look>${lookEsc(r.char)}</b> <span class="mn">→</span> <b data-look>${lookEsc(r.hanzi)}</b> <span class="py">${lookEsc(r.pinyin)}</span> <span class="mn">${lookEsc(r.name)}</span></div>`).join("")}`;
+  if (rad.self) return `<h2>Radical</h2><div class="wr">This is a radical: <span class="mn">${lookEsc(rad.name)}</span> <span class="py">${lookEsc(rad.pinyin)}</span></div>${rad.chars.length ? `<h2>Characters with ${lookEsc(rad.hanzi)} (${rad.chars.length})</h2>${radTiles(rad.chars)}` : ""}`;
+  return `<h2>Radical</h2>${line(rad)}${rad.chars.length ? `<h2>Other characters with ${lookEsc(rad.hanzi)} (${rad.chars.length})</h2>${radTiles(rad.chars)}` : ""}`;
+}
+function exploreHTML(word, words, dict, rad) {
+  const entries = dict ? dictEntries(dict, word) : [];
+  const own = words.find(w => w.hanzi === word);
+  const pinyin = own ? own.pinyin : (entries[0] || {}).pinyin || (rad && rad.self ? rad.pinyin : "");
+  const senses = own && own.senses && own.senses.length ? own.senses : entries.length ? entries[0].meaning.split(/;\s*/) : rad && rad.self ? [rad.name] : [];
+  const seen = new Set([word]);
+  const hsk = words.filter(w => w.hanzi.includes(word) && !/…/.test(w.hanzi) && !seen.has(w.hanzi) && seen.add(w.hanzi))
+    .sort((a, b) => a.hanzi.length - b.hanzi.length).slice(0, 12);
+  const more = dict ? dictWordsWith(dict, word, seen, 40).sort((a, b) => a.hanzi.length - b.hanzi.length).slice(0, 10) : [];
+  const exs = [];
+  for (const w of [own, ...hsk, ...words]) {
+    if (exs.length >= 3) break;
+    if (w && w.example && w.example.zh.includes(word) && !exs.some(e => e.zh === w.example.zh)) exs.push(w.example);
+  }
+  const row = w => `<div class="wr"><b data-look>${lookEsc(w.hanzi)}</b> <span class="py">${lookEsc(w.pinyin)}</span> <span class="mn">${lookEsc(w.short || (w.senses || [])[0] || "")}</span>${w.level && LOOK_LEVELS[w.level] ? ` <span class="tag">${LOOK_LEVELS[w.level]}</span>` : ""}</div>`;
+  const listen = t => `<button class="play" onclick="say(${lookEsc(JSON.stringify(t))})">Listen</button>`;
+  const write = `<button class="play" onclick="act(${lookEsc(JSON.stringify("write:" + JSON.stringify([word, pinyin, senses[0] || ""])))})">Write</button>`;
+  return `<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<style>
+:root { --bg:#EEF7E8; --ink:#000000; --accent:#108652; --grey:#5F665F; --line:#D3E4CA; --card:#FFFFFF; --soft:#97DF67; --on:#FFFFFF; }
+@media (prefers-color-scheme: dark) { :root { --bg:#0E1F16; --ink:#FFFFFF; --accent:#97DF67; --grey:#9DA39D; --line:#2F4A39; --card:#16291E; --soft:#108652; --on:#000000; } }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { margin:0; padding:24px 20px 120px; background:var(--bg); color:var(--ink); font: 17px/1.45 -apple-system, "PingFang SC", sans-serif; }
+.big { font-size:64px; font-weight:600; line-height:1.1; letter-spacing:2px; }
+.row { display:flex; align-items:center; gap:12px; margin-top:6px; flex-wrap:wrap; }
+.py { color:var(--accent); font-weight:600; } .row .py { font-size:24px; } .mn { color:var(--grey); }
+.play { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:20px; padding:6px 14px; font-size:15px; }
+.tag { font-size:12px; color:var(--grey); border:1px solid var(--line); border-radius:10px; padding:0 7px; white-space:nowrap; }
+h2 { font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--grey); margin:26px 0 8px; font-weight:600; }
+ol { margin:0; padding-left:24px; } li { margin:3px 0; }
+.wr { padding:8px 0; border-bottom:1px solid var(--line); } .wr b { font-size:20px; font-weight:600; }
+.ex { border-left:3px solid var(--accent); padding:4px 0 4px 14px; margin-bottom:12px; }
+.ex .zh { font-size:20px; } .ex .py { font-size:15px; font-weight:500; }
+.none { color:var(--grey); }
+.lvl { font-size:13px; color:var(--grey); margin:10px 0 4px; }
+.tiles { display:flex; flex-wrap:wrap; gap:6px; }
+.tile { border:1px solid var(--line); background:var(--card); border-radius:12px; padding:4px 10px; text-align:center; min-width:62px; }
+.tile b { display:block; font-size:22px; font-weight:600; } .tile small { display:block; font-size:12px; color:var(--accent); }
+.tile i { display:block; font-size:11px; font-style:normal; color:var(--grey); max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bar { position:fixed; left:0; right:0; bottom:0; padding:12px 20px 34px; background:var(--bg); border-top:1px solid var(--line); }
+.bar button { width:100%; font-size:17px; padding:14px; border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
+/* Tap a character: dictionary card */
+.c.hl { background:var(--soft); border-radius:4px; }
+#look { position:fixed; inset:0; z-index:20; background:rgba(0,0,0,.25); display:flex; align-items:flex-end; }
+#look .x { position:absolute; top:10px; right:14px; width:36px; height:36px; border:none; background:none; color:var(--grey); font-size:28px; line-height:1; }
+#look .sheet { position:relative; width:100%; background:var(--card); border-top:1px solid var(--line); border-radius:18px 18px 0 0; padding:18px 20px 34px; max-height:70vh; overflow:auto; }
+#look .w { font-size:40px; font-weight:600; line-height:1.1; }
+#look .e { margin-top:10px; } #look .e .py { color:var(--accent); font-weight:600; font-size:18px; } #look .e .mn { color:var(--grey); }
+#look .note { color:var(--grey); margin-top:10px; }
+#look .btns { display:flex; gap:10px; margin-top:16px; }
+#look .btns button { flex:1; font-size:16px; padding:12px; border-radius:14px; border:1px solid var(--line); background:var(--bg); color:var(--ink); }
+</style></head><body>
+<div class="big" data-look>${lookEsc(word)}</div>
+<div class="row"><span class="py">${lookEsc(pinyin)}</span>${listen(word)} ${write}${own && LOOK_LEVELS[own.level] ? ` <span class="tag">${LOOK_LEVELS[own.level]}</span>` : ""}</div>
+<h2>Meaning</h2>
+${senses.length ? `<ol>${senses.map(s => `<li>${lookEsc(s)}</li>`).join("")}</ol>` : `<div class="none">Not in the dictionary.</div>`}
+${radHTML(rad)}
+${hsk.length ? `<h2>Words with ${lookEsc(word)} in your lists</h2>${hsk.map(row).join("")}` : ""}
+${more.length ? `<h2>More words with ${lookEsc(word)}</h2>${more.map(row).join("")}` : ""}
+${exs.length ? `<h2>Examples</h2>${exs.map(e => `<div class="ex"><div class="zh" data-look>${lookEsc(e.zh)}</div><div class="py">${lookEsc(e.pinyin)}</div><div class="mn">${lookEsc(e.en)}</div></div>`).join("")}` : ""}
+<div class="bar"><button onclick="act('xback')">Back</button></div>
+<script>
+// Inside Write the page sits in a frame over the writing page: actions go through Write.
+function act(a) { if (window.parent !== window && window.parent.act) { window.parent.act(a); return; } location.href = "hanzi://" + encodeURIComponent(a); }
+function say(t) { act("speak:" + t); }
+// Tap a Chinese character: a card with the dictionary word that starts there.
+var HAN = /\\p{Script=Han}/u, lookId = 0, tapped = [];
+function wrapHan(node) {
+  Array.prototype.slice.call(node.childNodes).forEach(function (n) {
+    if (n.nodeType === 1) { if (n.tagName !== "BUTTON") wrapHan(n); return; }
+    if (n.nodeType !== 3 || !HAN.test(n.nodeValue)) return;
+    var frag = document.createDocumentFragment();
+    Array.from(n.nodeValue).forEach(function (ch) {
+      if (HAN.test(ch)) { var s = document.createElement("span"); s.className = "c"; s.textContent = ch; frag.appendChild(s); }
+      else frag.appendChild(document.createTextNode(ch));
+    });
+    n.parentNode.replaceChild(frag, n);
+  });
+}
+document.querySelectorAll("[data-look]").forEach(wrapHan);
+document.addEventListener("click", function (e) {
+  var s = e.target.closest && e.target.closest(".c");
+  if (!s) return;
+  var run = [s], n = s.nextSibling;
+  while (n && run.length < 6 && n.nodeType === 1 && n.classList.contains("c")) { run.push(n); n = n.nextSibling; }
+  tapped = run;
+  showCard({ id: ++lookId, word: s.textContent, len: 1, loading: true });
+  act("look:" + lookId + ":" + run.map(function (x) { return x.textContent; }).join(""));
+});
+function hideCard() {
+  var b = document.getElementById("look"); if (b) b.remove();
+  document.querySelectorAll(".c.hl").forEach(function (x) { x.classList.remove("hl"); });
+  tapped = []; lookId++;
+}
+function showCard(d) {
+  if (d.id !== lookId) return; // an older tap
+  document.querySelectorAll(".c.hl").forEach(function (x) { x.classList.remove("hl"); });
+  for (var k = 0; k < d.len && k < tapped.length; k++) tapped[k].classList.add("hl");
+  var box = document.getElementById("look");
+  if (!box) {
+    box = document.createElement("div"); box.id = "look";
+    box.onclick = function (e) { if (e.target === box) hideCard(); };
+    document.body.appendChild(box);
+  }
+  var sheet = document.createElement("div"); sheet.className = "sheet";
+  var x = document.createElement("button"); x.className = "x"; x.textContent = "×"; x.setAttribute("aria-label", "Close"); x.onclick = hideCard; sheet.appendChild(x);
+  var w = document.createElement("div"); w.className = "w"; w.textContent = d.word; sheet.appendChild(w);
+  (d.entries || []).forEach(function (en) {
+    var e = document.createElement("div"); e.className = "e";
+    var py = document.createElement("div"); py.className = "py"; py.textContent = en.pinyin;
+    var mn = document.createElement("div"); mn.className = "mn"; mn.textContent = en.meaning.split("/").join("; ");
+    e.appendChild(py); e.appendChild(mn); sheet.appendChild(e);
+  });
+  if (d.loading || d.note) { var t = document.createElement("div"); t.className = "note"; t.textContent = d.loading ? "Looking up..." : d.note; sheet.appendChild(t); }
+  var btns = document.createElement("div"); btns.className = "btns";
+  function btn(label, f) { var b = document.createElement("button"); b.textContent = label; b.onclick = f; btns.appendChild(b); }
+  var first = (d.entries || [])[0] || { pinyin: "", meaning: "" };
+  btn("Listen", function () { say(d.word); });
+  btn("Write", function () { act("write:" + JSON.stringify([d.word, first.pinyin, first.meaning.split(";")[0]])); });
+  btn("Explore", function () { act("explore:" + d.word); });
+  sheet.appendChild(btns);
+  box.innerHTML = ""; box.appendChild(sheet);
+}
+</script></body></html>`;
+}
+// Explore pages are a trail: Back goes to the page before, the last Back to the main page.
+const lookTrail = [];
+let lookAt = null; // the word of the Explore page on screen, null on the main page
+async function explorePage(word, words) { return exploreHTML(word, words, await getDict(), await radicalInfo(word)); }
+async function exploreTo(wv, word, words) {
+  if (!word) return;
+  lookTrail.push(lookAt); lookAt = word;
+  await wv.loadHTML(await explorePage(word, words));
+}
+async function exploreBack(wv, words, mainPage) {
+  lookAt = lookTrail.length ? lookTrail.pop() : null;
+  await wv.loadHTML(lookAt ? await explorePage(lookAt, words) : mainPage());
+}
+
 // ---------- run ----------
 async function info(title, message) {
   const al = new Alert();
@@ -626,6 +901,12 @@ if (!pack.words.length && !single) {
   saveState();
   const wv = new WebView();
   let busy = Promise.resolve();
+  // Words for Explore ("Words with X in your lists"): your HSK levels, also in Write (path).
+  let xWords = null;
+  async function exploreWords() {
+    if (!xWords) xWords = MODE === "random" ? pack.words : (await loadWords(levels)).words;
+    return xWords;
+  }
   async function handle(a) {
     if (a.startsWith("done:")) {
       const h = a.slice(5);
@@ -678,6 +959,23 @@ if (!pack.words.length && !single) {
       if (THEMES.includes(t)) { theme = t; save(THEME_FILE, t); }
     } else if (a.startsWith("speak:")) {
       Speech.speak(a.slice(6));
+    } else if (a.startsWith("explore:")) {
+      const x = a.slice(8);
+      if (!hanOnly(x).length) return;
+      await wv.evaluateJavaScript("openExplore(" + forScript(await explorePage(x, await exploreWords())) + ")", false);
+    } else if (a === "xback") {
+      await wv.evaluateJavaScript("closeExplore()", false);
+    } else if (a.startsWith("look:")) {
+      await showLook(wv, a);
+    } else if (a.startsWith("write:")) {
+      // Write on the dictionary card or Explore page: write that word now. Back comes back here.
+      let p = [];
+      try { p = JSON.parse(a.slice(6)); } catch (e) { return; }
+      const h = String(p[0] || "");
+      if (!hanOnly(h).length) return;
+      w = Object.assign({ level: "one" }, pack.byHanzi[h] || { hanzi: h, pinyin: p[1] || "", short: p[2] || "" }, { extra: true });
+      seen.length = at + 1; seen.push(w); at = seen.length - 1;
+      await wv.loadHTML(await pageFor(w));
     }
   }
   wv.shouldAllowRequest = req => {

@@ -427,7 +427,7 @@ function showCard(d) {
 }
 
 // ---------- tap a character: dictionary card ----------
-// The same block is in Hourly Words and Radicals. Words come from CC-CEDICT in dict.txt
+// The same block is in Hourly Words, Radicals and Write. Words come from CC-CEDICT in dict.txt
 // (the file Add Word uses, about 7 MB). It downloads the first time you tap a character.
 const DICT_URL = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/data/dict.txt";
 let dictText = null;
@@ -612,7 +612,8 @@ ${more.length ? `<h2>More words with ${lookEsc(word)}</h2>${more.map(row).join("
 ${exs.length ? `<h2>Examples</h2>${exs.map(e => `<div class="ex"><div class="zh" data-look>${lookEsc(e.zh)}</div><div class="py">${lookEsc(e.pinyin)}</div><div class="mn">${lookEsc(e.en)}</div></div>`).join("")}` : ""}
 <div class="bar"><button onclick="act('xback')">Back</button></div>
 <script>
-function act(a) { location.href = "hanzi://" + encodeURIComponent(a); }
+// Inside Write the page sits in a frame over the writing page: actions go through Write.
+function act(a) { if (window.parent !== window && window.parent.act) { window.parent.act(a); return; } location.href = "hanzi://" + encodeURIComponent(a); }
 function say(t) { act("speak:" + t); }
 // Tap a Chinese character: a card with the dictionary word that starts there.
 var HAN = /\\p{Script=Han}/u, lookId = 0, tapped = [];
