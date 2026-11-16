@@ -241,10 +241,10 @@ function detailHTML(r, words) {
   const blocks = r.examples.map(e => {
     const f = wordFor(e.char, words);
     return `<div class="card">
-<div class="row"><span class="ch">${esc(e.char)}</span><div><div class="py">${esc(e.pinyin)}</div><div class="mn">${esc(e.meaning)}</div></div>
+<div class="row"><span class="ch" data-look>${esc(e.char)}</span><div><div class="py">${esc(e.pinyin)}</div><div class="mn">${esc(e.meaning)}</div></div>
 <span class="sp"></span>${playBtn(e.char)} ${writeBtn(e.char, e.pinyin, e.meaning)}</div>
-${f.word ? `<div class="word"><span class="label">Word</span> <b>${esc(f.word.hanzi)}</b> <span class="py">${esc(f.word.pinyin)}</span> <span class="mn">${esc(f.word.short)}</span></div>` : ""}
-${f.example ? `<div class="ex"><div class="zh">${esc(f.example.zh)}</div>
+${f.word ? `<div class="word"><span class="label">Word</span> <b data-look>${esc(f.word.hanzi)}</b> <span class="py">${esc(f.word.pinyin)}</span> <span class="mn">${esc(f.word.short)}</span></div>` : ""}
+${f.example ? `<div class="ex"><div class="zh" data-look>${esc(f.example.zh)}</div>
 <div class="py">${esc(f.example.pinyin)}</div><div class="mn">${esc(f.example.en)}</div></div>` : ""}
 </div>`;
   }).join("");
@@ -272,8 +272,17 @@ h2 { font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--g
 .bar { position:fixed; left:0; right:0; bottom:0; padding:12px 20px 34px; background:var(--bg); border-top:1px solid var(--line); }
 .bar button { width:100%; font-size:17px; padding:14px; border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
 .foot { color:var(--grey); font-size:13px; margin-top:20px; }
+/* Tap a character: dictionary card */
+.c.hl { background:var(--soft); border-radius:4px; }
+#look { position:fixed; inset:0; z-index:20; background:rgba(0,0,0,.25); display:flex; align-items:flex-end; }
+#look .sheet { width:100%; background:var(--card); border-top:1px solid var(--line); border-radius:18px 18px 0 0; padding:18px 20px 34px; max-height:70vh; overflow:auto; }
+#look .w { font-size:40px; font-weight:600; line-height:1.1; }
+#look .e { margin-top:10px; } #look .e .py { color:var(--accent); font-weight:600; font-size:18px; } #look .e .mn { color:var(--grey); }
+#look .note { color:var(--grey); margin-top:10px; }
+#look .btns { display:flex; gap:10px; margin-top:16px; }
+#look .btns button { flex:1; font-size:16px; padding:12px; border-radius:14px; border:1px solid var(--line); background:var(--bg); color:var(--ink); }
 </style></head><body>
-<div class="top"><div class="rad">${esc(r.radical)}</div>
+<div class="top"><div class="rad" data-look>${esc(r.radical)}</div>
 <div><div class="name">${esc(r.name)}</div><div class="py">${esc(r.pinyin)} ${playBtn(SPEAK[r.radical] || r.radical)} ${writeBtn(r.radical, r.pinyin, r.meaning || r.name)}</div>${r.meaning ? `<div class="mn">${esc(r.meaning)}</div>` : ""}</div></div>
 <h2>Characters with this radical</h2>
 ${blocks}
@@ -308,6 +317,63 @@ function say(t) {
   voice(t);
 }
 function act(a) { location.href = "hanzi://" + encodeURIComponent(a); }
+// Tap a Chinese character: a card with the dictionary word that starts there.
+var HAN = /\\p{Script=Han}/u, lookId = 0, tapped = [];
+function wrapHan(node) {
+  Array.prototype.slice.call(node.childNodes).forEach(function (n) {
+    if (n.nodeType === 1) { if (n.tagName !== "BUTTON") wrapHan(n); return; }
+    if (n.nodeType !== 3 || !HAN.test(n.nodeValue)) return;
+    var frag = document.createDocumentFragment();
+    Array.from(n.nodeValue).forEach(function (ch) {
+      if (HAN.test(ch)) { var s = document.createElement("span"); s.className = "c"; s.textContent = ch; frag.appendChild(s); }
+      else frag.appendChild(document.createTextNode(ch));
+    });
+    n.parentNode.replaceChild(frag, n);
+  });
+}
+document.querySelectorAll("[data-look]").forEach(wrapHan);
+document.addEventListener("click", function (e) {
+  var s = e.target.closest && e.target.closest(".c");
+  if (!s) return;
+  var run = [s], n = s.nextSibling;
+  while (n && run.length < 6 && n.nodeType === 1 && n.classList.contains("c")) { run.push(n); n = n.nextSibling; }
+  tapped = run;
+  showCard({ id: ++lookId, word: s.textContent, len: 1, loading: true });
+  act("look:" + lookId + ":" + run.map(function (x) { return x.textContent; }).join(""));
+});
+function hideCard() {
+  var b = document.getElementById("look"); if (b) b.remove();
+  document.querySelectorAll(".c.hl").forEach(function (x) { x.classList.remove("hl"); });
+  tapped = []; lookId++;
+}
+function showCard(d) {
+  if (d.id !== lookId) return; // an older tap
+  document.querySelectorAll(".c.hl").forEach(function (x) { x.classList.remove("hl"); });
+  for (var k = 0; k < d.len && k < tapped.length; k++) tapped[k].classList.add("hl");
+  var box = document.getElementById("look");
+  if (!box) {
+    box = document.createElement("div"); box.id = "look";
+    box.onclick = function (e) { if (e.target === box) hideCard(); };
+    document.body.appendChild(box);
+  }
+  var sheet = document.createElement("div"); sheet.className = "sheet";
+  var w = document.createElement("div"); w.className = "w"; w.textContent = d.word; sheet.appendChild(w);
+  (d.entries || []).forEach(function (en) {
+    var e = document.createElement("div"); e.className = "e";
+    var py = document.createElement("div"); py.className = "py"; py.textContent = en.pinyin;
+    var mn = document.createElement("div"); mn.className = "mn"; mn.textContent = en.meaning.split("/").join("; ");
+    e.appendChild(py); e.appendChild(mn); sheet.appendChild(e);
+  });
+  if (d.loading || d.note) { var t = document.createElement("div"); t.className = "note"; t.textContent = d.loading ? "Looking up..." : d.note; sheet.appendChild(t); }
+  var btns = document.createElement("div"); btns.className = "btns";
+  function btn(label, f) { var b = document.createElement("button"); b.textContent = label; b.onclick = f; btns.appendChild(b); }
+  var first = (d.entries || [])[0] || { pinyin: "", meaning: "" };
+  btn("Listen", function () { say(d.word); });
+  btn("Write", function () { act("write:" + JSON.stringify([d.word, first.pinyin, first.meaning.split(";")[0]])); });
+  btn("Close", hideCard);
+  sheet.appendChild(btns);
+  box.innerHTML = ""; box.appendChild(sheet);
+}
 </script></body></html>`;
 }
 
@@ -317,6 +383,58 @@ function openWrite(a) {
   try { p = JSON.parse(a.slice(6)); } catch (e) { return; }
   Safari.open("scriptable:///run/" + encodeURIComponent("Write") + "?word=" + encodeURIComponent(p[0] || "") +
     "&pinyin=" + encodeURIComponent(p[1] || "") + "&meaning=" + encodeURIComponent(p[2] || ""));
+}
+
+// ---------- tap a character: dictionary card ----------
+// The same block is in Hourly Words and Radicals. Words come from CC-CEDICT in dict.txt
+// (the file Add Word uses, about 7 MB). It downloads the first time you tap a character.
+const DICT_URL = "https://raw.githubusercontent.com/penguin0x3/hanzi-widgets/main/data/dict.txt";
+let dictText = null;
+async function getDict() {
+  if (dictText) return dictText;
+  const fd = FileManager.iCloud(), p = fd.joinPath(fd.documentsDirectory(), "dict.txt");
+  try { if (fd.fileExists(p)) { await fd.downloadFileFromiCloud(p); dictText = fd.readString(p); } } catch (e) {}
+  if (!dictText || dictText.length < 100000) {
+    try {
+      const r = new Request(DICT_URL);
+      r.timeoutInterval = 60;
+      const t = await r.loadString();
+      if (t && t.length > 100000) { fd.writeString(p, t); dictText = t; }
+    } catch (e) {}
+  }
+  return dictText && dictText.length > 100000 ? dictText : "";
+}
+// Every "word<TAB>pinyin<TAB>meanings" line for a word (some words have 2 or 3 readings).
+function dictEntries(dict, word) {
+  const out = [];
+  let i = dict.startsWith(word + "\t") ? 0 : dict.indexOf("\n" + word + "\t");
+  while (i >= 0 && out.length < 3) {
+    const start = dict[i] === "\n" ? i + 1 : i;
+    const end = dict.indexOf("\n", start);
+    const p = dict.slice(start, end < 0 ? undefined : end).split("\t");
+    out.push({ pinyin: p[1] || "", meaning: p[2] || "" });
+    i = end < 0 ? -1 : dict.indexOf("\n" + word + "\t", end);
+  }
+  return out;
+}
+// The longest dictionary word that starts at the tapped character (up to 6 characters).
+async function lookUp(text) {
+  const chars = Array.from(text).slice(0, 6);
+  const dict = await getDict();
+  if (!dict) return { word: chars[0] || "", len: 1, entries: [], note: "The dictionary needs the internet the first time. Connect and tap again." };
+  for (let n = chars.length; n >= 1; n--) {
+    const word = chars.slice(0, n).join("");
+    const entries = dictEntries(dict, word);
+    if (entries.length) return { word, len: n, entries };
+  }
+  return { word: chars[0] || "", len: 1, entries: [], note: "Not in the dictionary." };
+}
+// The page sends "look:<id>:<characters from the tapped one>"; the card is filled in place.
+async function showLook(wv, a) {
+  const m = a.match(/^look:(\d+):(.*)$/);
+  if (!m) return;
+  const d = Object.assign({ id: Number(m[1]) }, await lookUp(m[2]));
+  await wv.evaluateJavaScript("showCard(" + JSON.stringify(d).replace(/</g, "\\u003c") + ")", false);
 }
 
 // The page asks for "next" by opening hanzi://next; we catch it and load the next radical.
@@ -331,6 +449,7 @@ async function showDetail(start) {
     if (!u.startsWith("hanzi://")) return true;
     const a = decodeURIComponent(u.slice(8));
     if (a.startsWith("write:")) openWrite(a);
+    else if (a.startsWith("look:")) busy = busy.then(() => showLook(wv, a)).catch(e => console.log("look failed: " + e));
     else if (a === "next") {
       k += 1;
       busy = busy.then(() => wv.loadHTML(detailHTML(itemAt(k), words))).catch(e => console.log("next failed: " + e));

@@ -16,7 +16,7 @@ function newDir() { return fs.mkdtempSync(path.join(os.tmpdir(), "scriptable-"))
 // opts: { dir, family, widget, param, query, shared, alerts: [answers], web: [actions], offline }
 async function run(file, opts) {
   const src = fs.readFileSync(path.join(ROOT, "scriptable", file), "utf8");
-  const out = { texts: [], alerts: [], speak: [], html: [], allowed: [], requests: 0, opened: [] };
+  const out = { texts: [], alerts: [], speak: [], html: [], allowed: [], requests: 0, opened: [], js: [] };
   const answers = [...(opts.alerts || [])];
   const webActions = [...(opts.web || [])];
   const mkStack = () => ({
@@ -57,7 +57,7 @@ async function run(file, opts) {
   }
   class WebView {
     async loadHTML(h) { out.html.push(h); }
-    async evaluateJavaScript() {}
+    async evaluateJavaScript(js) { out.js.push(js); }
     async present() { // the user taps the page buttons, then Close
       for (const a of webActions) {
         const allowed = this.shouldAllowRequest({ url: "hanzi://" + encodeURIComponent(a) });
@@ -188,7 +188,7 @@ check("detail page has meanings, measure word and example", page.includes("eveni
 check("detail page has a Play button", page.includes("say("));
 check("Play uses the iPhone voice, no recorded audio", !page.includes("data-say") && !page.includes("main/audio/") && page.includes("function voice("));
 check("Mark known saves the word", read(dir, "hanzi-progress.json").known["晚上"] === 1);
-check("Next word loads another word", o.html.length === 2 && !o.html[1].includes('<div class="hanzi">晚上</div>'));
+check("Next word loads another word", o.html.length === 2 && !o.html[1].includes('<div class="hanzi" data-look>晚上</div>'));
 check("speech fallback uses Speech.speak", o.speak[0] === "晚上");
 o = await run("Hourly Words.js", { dir, query: { word: "晚上", levels: "hsk1-2" }, web: ["known"] });
 check("Mark known again undoes it", !read(dir, "hanzi-progress.json").known["晚上"]);
@@ -236,8 +236,31 @@ check("a known word leaves the review list", !read(dir, "hanzi-progress.json").r
 o = await run("Hourly Words.js", { dir, query: { word: rw, levels: "hsk3" }, web: [] });
 check("tapping a known word does not add it to review", !read(dir, "hanzi-progress.json").review[rw]);
 o = await run("Hourly Words.js", { dir, query: { word: rw, levels: "hsk3" }, web: ["known", "next"] });
-const nextW = (o.html[1].match(/<div class="hanzi">([^<]+)<\/div>/) || [])[1];
+const nextW = (o.html[1].match(/<div class="hanzi" data-look>([^<]+)<\/div>/) || [])[1];
 check("Next word on the page is not added to review", nextW && !read(dir, "hanzi-progress.json").review[nextW]);
+
+// ---------- tap a character: dictionary card (Hourly Words and Radicals) ----------
+const card = js => JSON.parse(js.slice("showCard(".length, -1));
+let ld = newDir();
+o = await run("Hourly Words.js", { dir: ld, query: { word: "晚上" }, web: ["look:1:晚上吃饭", "look:2:吃饭", "look:3:饭", "look:4:x", "look:5:"] });
+const scriptsOk = h => [...h.matchAll(/<script>([\s\S]*?)<\/script>/g)].every(m => { try { new Function(m[1]); return true; } catch (e) { return false; } });
+check("the page scripts have no syntax errors", scriptsOk(o.html[0]));
+check("the word and the example sentence can be tapped", o.html[0].includes('class="hanzi" data-look') && o.html[0].includes("function showCard"));
+check("a tap finds the longest word that starts there", card(o.js[0]).word === "晚上" && card(o.js[0]).len === 2 && card(o.js[0]).id === 1 && card(o.js[0]).entries[0].pinyin.length > 0);
+check("a tap on 吃 finds 吃饭 with pinyin and meaning", card(o.js[1]).word === "吃饭" && /eat/.test(card(o.js[1]).entries[0].meaning));
+check("one character works too", card(o.js[2]).word === "饭" && card(o.js[2]).len === 1);
+check("the dictionary is saved for next time", fs.statSync(path.join(ld, "dict.txt")).size > 100000);
+check("not a Chinese word: a clear note", card(o.js[3]).note === "Not in the dictionary." && o.js.length === 5);
+o = await run("Hourly Words.js", { dir: ld, query: { word: "晚上" }, web: ["look:1:饭"], offline: true });
+check("the saved dictionary works offline", card(o.js[0]).word === "饭" && card(o.js[0]).entries.length === 1);
+const ld2 = newDir();
+fs.copyFileSync(path.join(ROOT, "data", "hsk1-2.json"), path.join(ld2, "hsk1-2.json"));
+o = await run("Hourly Words.js", { dir: ld2, query: { word: "晚上" }, web: ["look:1:饭"], offline: true });
+check("no dictionary and offline: a clear note", /needs the internet/.test(card(o.js[0]).note));
+check("Hourly Words and Radicals have the same dictionary code", (() => {
+  const block = f => { const t = fs.readFileSync(path.join(ROOT, "scriptable", f), "utf8"); return t.slice(t.indexOf("// ---------- tap a character"), t.indexOf("async function showLook")); };
+  return block("Hourly Words.js").length > 500 && block("Hourly Words.js") === block("Radicals.js");
+})());
 
 // ---------- menu ----------
 dir = newDir();
